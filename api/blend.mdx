@@ -1,7 +1,7 @@
 ---
-title: "POST /api/blend — Fertiliser Regime Blend and Cost Comparison"
+title: "POST /api/blend — Fertiliser Blend and Cost Comparison"
 sidebarTitle: "Blend"
-description: "POST /api/blend — interpolate between conventional and organic fertiliser LCA impacts using an alpha weighting parameter and return per-hectare INR costs for all three scenarios."
+description: "POST /api/blend — compare conventional, organic, and blended fertiliser LCA impacts with per-hectare INR cost for all three scenarios."
 ---
 
 The blend endpoint runs both the conventional and organic predictors in a single call and returns the linearly interpolated LCA impacts plus per-hectare INR cost for three scenarios: fully conventional, fully organic, and a user-defined blend. Use the `alpha` parameter to explore the impact-cost trade-off — for example, a 30% organic blend (alpha=0.3) replaces 30% of the synthetic impact footprint with the organic footprint and weights the cost accordingly.

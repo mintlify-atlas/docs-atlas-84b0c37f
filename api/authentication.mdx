@@ -1,7 +1,7 @@
 ---
-title: "API Access and Authentication for Carbonkrishi"
+title: "Carbonkrishi API Authentication and CORS Configuration"
 sidebarTitle: "Authentication"
-description: "Carbonkrishi requires no API keys or authentication by default. All endpoints are open. Learn how to add access controls for production deployments."
+description: "Carbonkrishi requires no API keys or tokens by default. CORS allows all origins. Learn how to restrict origins and add API key auth for production."
 ---
 
 Carbonkrishi's API is open by default — no API keys, tokens, or authentication headers are required to call any endpoint. The server is configured with permissive CORS (`allow_origins=["*"]`) that is suitable for local development and internal tooling but should be hardened before any public-facing deployment.

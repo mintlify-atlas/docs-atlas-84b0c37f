@@ -1,7 +1,7 @@
 ---
 title: "GET /api/meta — API Metadata, Ranges, and Configuration"
 sidebarTitle: "Meta"
-description: "GET /api/meta — retrieve input validation ranges, Indian market cost rates, per-kg LCA impact footprints, citation sources, and organic model availability in one call."
+description: "GET /api/meta — fetch input ranges, INR cost rates, per-kg LCA footprints, citation sources, and organic model availability for client bootstrapping."
 ---
 
 The meta endpoint returns all the static configuration data that frontend applications and API clients need to set up a valid request: recommended input ranges for conventional and organic inputs, fertiliser cost rates in INR, per-kg environmental footprints derived from OpenLCA, the full citation registry used by inference cards, and whether the organic model stack is loaded and ready. Clients should call this endpoint at startup to avoid hardcoding validation bounds.

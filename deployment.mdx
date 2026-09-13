@@ -1,10 +1,10 @@
 ---
-title: "Deploy Carbonkrishi with Docker or Render"
+title: "Deploy Carbonkrishi: Docker, Render, and Local Dev"
 sidebarTitle: "Deployment"
-description: "Run Carbonkrishi locally with uvicorn, build a Docker container, or deploy directly to Render using the included render.yaml configuration."
+description: "Run Carbonkrishi locally with uvicorn, build a Docker container, or deploy to Render's free-tier Docker runtime using the repo's render.yaml configuration."
 ---
 
-Carbonkrishi ships as a self-contained FastAPI application. It can run directly on any machine with Python 3.11, inside Docker, or on Render's free-tier Docker runtime. No external database or message broker is required — the only runtime dependency beyond the Python packages is a set of `.pkl` model files that live in the repository root.
+Carbonkrishi ships as a self-contained FastAPI application. It can run directly on any machine with Python 3.11, inside Docker, or on Render's free-tier Docker runtime. No external database or message broker is required — the only runtime dependency beyond the Python packages is a set of `.pkl` model files loaded from `backend/models/` at startup.
 
 ---
 
@@ -103,10 +103,10 @@ Render automatically sets the `PORT` environment variable at container startup. 
 |---|---|---|
 | `PORT` | `7860` | The port Uvicorn binds to inside the container. Set automatically by Render; override manually for local Docker runs. |
 | `DEV` | _(unset)_ | Set to `1` to enable arel browser hot-reload for the `frontend/` directory during local development. Requires `pip install arel`. |
-| `CK_MODEL_DIR` | _(repo root)_ | Override the directory path where Carbonkrishi searches for `.pkl` model files. Useful when mounting model files as a Docker volume or secret. |
+| `CK_MODEL_DIR` | `backend/models/` | Override the directory path where Carbonkrishi searches for `.pkl` model files. Falls back to the project root if `backend/models/` does not exist. Useful when mounting model files as a Docker volume. |
 
 <Note>
-  The **conventional model** (`.pkl` files for the NPK+Zn Ridge regressor) is **required** at startup — the application will log an error and the predict endpoints will be non-functional if these files are missing.
+  The **conventional model** (`model_conventional.pkl` and `scaler_conventional.pkl`) is **required** at startup — Carbonkrishi raises a `RuntimeError` and predict endpoints are non-functional if these files are missing from `backend/models/` (or the path set in `CK_MODEL_DIR`).
 
-  The **organic model** is **optional**. If its `.pkl` files are absent, Carbonkrishi starts normally and all conventional, blend, emissions, credits, and inference endpoints continue to work. Requests to `POST /api/predict/organic` return `HTTP 503 Service Unavailable` until the files are present and the server is restarted.
+  The **organic model** (`model_organic.pkl` and `scaler_organic.pkl`) is **optional**. If absent, Carbonkrishi starts normally and all conventional, blend, emissions, credits, and inference endpoints continue to work. Requests to `POST /api/predict/organic` return `HTTP 503 Service Unavailable` until the files are present and the server is restarted.
 </Note>

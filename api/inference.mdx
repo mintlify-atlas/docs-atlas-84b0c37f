@@ -1,7 +1,7 @@
 ---
-title: "POST /api/inference/card — Multilingual Agronomic Inference Cards"
+title: "POST /api/inference/card — Agronomic Inference Cards"
 sidebarTitle: "Inference"
-description: "POST /api/inference/card — generate a farmer-facing explanation card for an LCA or emission metric in English, Hindi, Telugu, or Marathi with color-coded severity and cited sources."
+description: "POST /api/inference/card — generate a localised agronomic explanation card for any LCA or emission metric in English, Hindi, Telugu, or Marathi."
 ---
 
 The inference card endpoint converts a numeric domain value into a plain-language explanation card with actionable agronomic recommendations, a severity colour, and a list of cited references. Cards are available in four languages — English, Hindi, Telugu, and Marathi — and adapt their message based on threshold comparisons against domain-specific reference values. The optional `ctx` object unlocks richer, context-aware guidance (e.g. irrigation mode for CH₄, zinc level for ecotoxicity).

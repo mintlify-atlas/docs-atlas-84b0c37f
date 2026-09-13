@@ -1,7 +1,7 @@
 ---
 title: "Emission Factors and Field GHG Calculation Methodology"
 sidebarTitle: "Emission Factors"
-description: "Field emissions in Carbonkrishi are computed using IPCC 2019 N₂O factors, IPCC rice CH₄ defaults, and SALCA NH₃ volatilisation rates, adjusted for irrigation mode and amendments."
+description: "Field emissions in Carbonkrishi use IPCC 2019 N₂O factors, IPCC rice CH₄ defaults, and SALCA NH₃ rates adjusted for irrigation mode and organic amendments."
 ---
 
 Unlike LCA prediction, field emission estimation in Carbonkrishi is **fully deterministic** — no machine learning is involved. The `compute_field_emissions()` function applies published emission factors from IPCC 2019 (N₂O), IPCC rice cultivation guidelines (CH₄), and the Swiss SALCA methodology (NH₃, PO₄) directly to the fertiliser application rates and irrigation regime supplied by the caller. The result is a set of five pollutant loads in **kg/ha/season** that can be compared against regulatory thresholds and field monitoring data.

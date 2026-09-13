@@ -1,7 +1,7 @@
 ---
-title: "Field-Level GHG and Pollutant Emission Estimation"
+title: "Field-Level GHG and Pollutant Emissions for Rice Paddies"
 sidebarTitle: "Field Emissions"
-description: "Estimate per-hectare per-season emissions of CH₄, N₂O, NO₃, NH₃, and PO₄ from rice paddies using IPCC and SALCA emission factors."
+description: "Estimate per-hectare per-season CH₄, N₂O, NO₃, NH₃, and PO₄ emissions from rice paddies using IPCC 2019 and SALCA factors across three irrigation modes."
 ---
 
 Field-level emission estimation is a fully analytical calculation — no machine learning is involved. The computation applies published **IPCC 2019** and **SALCA** (Swiss Agricultural LCA) emission factors to your synthetic N and P application rates, irrigation management regime, and any organic amendments you use. Because emissions are calculated from first-principles factors rather than a trained model, results are deterministic and reproducible.
@@ -73,9 +73,9 @@ curl -X POST http://localhost:8000/api/emissions/field \
 ```json
 {
   "CH4": 16.524,
-  "N2O": 0.7064,
+  "N2O": 0.7054,
   "NO3": 5.3811,
-  "NH3": 53.5367,
+  "NH3": 55.9948,
   "PO4": 1.5325
 }
 ```

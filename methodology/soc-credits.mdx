@@ -1,7 +1,7 @@
 ---
-title: "Soil Organic Carbon Sequestration and CCTS Credit Methodology"
+title: "Soil Organic Carbon Sequestration and CCTS Credits"
 sidebarTitle: "SOC Credits"
-description: "Carbonkrishi estimates soil organic carbon (SOC) from FYM and compost using humification coefficients, applies a permanence buffer, and values credits at India's CCTS price band."
+description: "Carbonkrishi estimates stabilised soil organic carbon from FYM and compost, applies a permanence buffer, and converts the result to CCTS credit values."
 ---
 
 Soil organic carbon (SOC) sequestration is the process by which organic matter added to soil is stabilised into long-lived humus rather than being rapidly mineralised and re-emitted as CO₂. Carbonkrishi quantifies this for **farmyard manure (FYM)** and **compost** using established dry-matter, carbon-content, and humification coefficients drawn from agronomic literature, then converts the result to CO₂-equivalents and applies a permanence buffer consistent with carbon registry practice (Verra VM0042, Gold Standard). The final output is a credit estimate in **t CO₂-eq/ha/season** and a monetary valuation under India's Carbon Credit Trading Scheme (CCTS).
@@ -110,19 +110,19 @@ fym_soc_tco2 = (156.25 / 1000) × 3.667     = 0.5730 t CO₂-eq
 
 **Compost SOC:**
 ```
-stabilised_C     = 1,500 × 0.55 × 0.25 × 0.35 = 72.19 kg C
-compost_soc_tco2 = (72.19 / 1000) × 3.667      = 0.2647 t CO₂-eq
+stabilised_C     = 1,500 × 0.55 × 0.25 × 0.35 = 72.1875 kg C
+compost_soc_tco2 = (72.1875 / 1000) × 3.667    = 0.2647 t CO₂-eq
 ```
 
 **Combined:**
 
 | Step | Value |
 |---|---|
-| FYM SOC | 0.573 t CO₂-eq |
-| Compost SOC | 0.265 t CO₂-eq |
-| Total before buffer | 0.838 t CO₂-eq |
-| Buffer withheld (20%) | 0.168 t CO₂-eq |
-| **Tradeable credits (80%)** | **0.670 t CO₂-eq** |
+| FYM SOC | 0.5730 t CO₂-eq |
+| Compost SOC | 0.2647 t CO₂-eq |
+| Total before buffer | 0.8377 t CO₂-eq |
+| Buffer withheld (20%) | 0.1675 t CO₂-eq |
+| **Tradeable credits (80%)** | **0.6702 t CO₂-eq** |
 | Value at ₹600/t | ₹402 |
 | Value at ₹900/t | ₹603 |
 

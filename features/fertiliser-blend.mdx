@@ -1,7 +1,7 @@
 ---
 title: "Optimise Conventional and Organic Fertiliser Blends"
 sidebarTitle: "Fertiliser Blend"
-description: "Linearly interpolate between conventional NPK+Zn and organic FYM+Compost regimes, compare LCA impacts side-by-side, and calculate per-hectare INR costs for each mix."
+description: "Blend NPK+Zn and FYM+Compost inputs with an alpha weighting, compare four LCA impact categories side-by-side, and get per-hectare INR costs per scenario."
 ---
 
 The blend endpoint runs **both** the conventional and organic LCA predictors in a single request, then linearly interpolates between their outputs using a single `alpha` parameter. The response returns LCA impacts and INR input costs for all three scenarios — pure conventional, pure organic, and the blended mix — enabling direct cost-versus-emissions trade-off analysis.
@@ -86,9 +86,9 @@ curl -X POST http://localhost:8000/api/blend \
     "terrestrial_acidification": 3.050,
     "terrestrial_ecotoxicity": 10394.2
   },
-  "cost_conventional_inr": 5267.50,
+  "cost_conventional_inr": 5202.50,
   "cost_organic_inr": 13250.00,
-  "cost_blend_inr": 7644.25
+  "cost_blend_inr": 7616.75
 }
 ```
 

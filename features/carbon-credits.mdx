@@ -1,7 +1,7 @@
 ---
 title: "Soil Organic Carbon Credit Estimation for Rice Farmers"
 sidebarTitle: "Carbon Credits"
-description: "Estimate soil organic carbon sequestration from FYM and compost inputs and calculate tradeable carbon credit potential under India's CCTS price band of ₹600–₹900 per tonne CO2-eq."
+description: "Estimate SOC sequestration from FYM and compost, apply a permanence buffer, and calculate tradeable credit value at India's CCTS ₹600–₹900/t price band."
 ---
 
 Carbonkrishi's SOC (Soil Organic Carbon) credit estimator quantifies how much carbon FYM and compost inputs lock into the soil over a cropping season. It applies a configurable **permanence buffer** — defaulting to 20% — to account for reversal risk, then translates the net sequestered carbon into a monetary value range using India's **Carbon Credit Trading Scheme (CCTS)** price band of ₹600–₹900 per tonne CO₂-eq.
@@ -62,14 +62,14 @@ curl -X POST http://localhost:8000/api/credits/soc \
 ```json
 {
   "fym_soc_tco2": 0.5730,
-  "compost_soc_tco2": 0.2869,
+  "compost_soc_tco2": 0.2647,
   "fym_credits_tco2": 0.4584,
-  "compost_credits_tco2": 0.2295,
-  "soc_before_buffer_tco2": 0.8599,
-  "credits_tco2": 0.6879,
-  "buffer_withheld_tco2": 0.1720,
-  "value_low_inr": 412.74,
-  "value_high_inr": 619.11
+  "compost_credits_tco2": 0.2118,
+  "soc_before_buffer_tco2": 0.8377,
+  "credits_tco2": 0.6701,
+  "buffer_withheld_tco2": 0.1675,
+  "value_low_inr": 402.09,
+  "value_high_inr": 603.13
 }
 ```
 

@@ -1,7 +1,7 @@
 ---
 title: "POST /api/emissions/field — Field GHG Emission Estimation"
 sidebarTitle: "Emissions"
-description: "POST /api/emissions/field — estimate per-hectare per-season emissions of CH₄, N₂O, NO₃, NH₃, and PO₄ using IPCC and SALCA factors for irrigation mode and amendments."
+description: "POST /api/emissions/field — estimate CH₄, N₂O, NO₃, NH₃, and PO₄ per hectare per season from synthetic inputs, irrigation mode, and organic amendments."
 ---
 
 The field emissions endpoint is purely deterministic — no machine learning. It applies IPCC 2019 and SALCA emission factors to compute five pollutants per hectare per season based on the synthetic N and P application rates, the irrigation management mode, and up to two organic amendments. Results reflect a single rice growing season on one hectare.

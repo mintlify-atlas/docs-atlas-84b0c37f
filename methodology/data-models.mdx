@@ -1,7 +1,7 @@
 ---
-title: "ML Models and Training Data for LCA Prediction"
+title: "ML Models and Training Data for Rice LCA Prediction"
 sidebarTitle: "Data & Models"
-description: "Carbonkrishi uses Ridge regression models trained on OpenLCA-derived paddy datasets to predict four LCA impact categories from fertiliser application rates."
+description: "Carbonkrishi uses Ridge regression models trained on OpenLCA paddy datasets to predict four LCA impact categories from fertiliser application rates."
 ---
 
 Carbonkrishi's prediction engine uses scikit-learn Ridge regression models trained on datasets derived from [OpenLCA](https://www.openlca.org/) life cycle assessment software. Two separate model stacks exist: one for **conventional fertiliser** inputs (NPK+Zn) and one for **organic inputs** (FYM+Compost). Each stack independently predicts four LCA impact categories simultaneously from the applied nutrient rates, enabling rapid what-if analysis without running a full LCA.
