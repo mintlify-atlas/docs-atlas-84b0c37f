@@ -1,0 +1,96 @@
+---
+title: "Carbonkrishi: Climate-Smart LCA for Rice Farming"
+sidebarTitle: "Introduction"
+description: "Carbonkrishi is an AI-powered life cycle assessment API for rice farmers. Predict fertiliser impacts, estimate GHG emissions, and calculate carbon credit potential."
+---
+
+Carbonkrishi is a climate-smart, AI-powered Life Cycle Assessment (LCA) platform built specifically for rice agriculture. It exposes a suite of REST API endpoints that let rice farmers, agronomists, sustainability researchers, and developers building agri-tech tools quantify the environmental footprint of fertiliser inputs, estimate field-level greenhouse gas emissions, optimise nutrient blends, and calculate soil-organic-carbon credit potential — all from a single, open API.
+
+## Fertiliser Regimes
+
+Carbonkrishi models two distinct fertiliser management strategies common across South and South-East Asian rice systems:
+
+| Regime | Inputs | Description |
+|---|---|---|
+| **Conventional** | N, P, K, Zn | Synthetic NPK fertiliser plus zinc micronutrient (kg ha⁻¹) |
+| **Organic** | FYM, Compost | Farm Yard Manure and compost amendments (kg ha⁻¹) |
+
+Both regimes are modelled through independent Ridge regression models trained on OpenLCA-derived impact data. The blend endpoint accepts inputs from both regimes simultaneously and returns a weighted composite using a user-defined `alpha` parameter.
+
+## LCA Impact Categories
+
+Every prediction response returns four environmental impact indicators drawn from the ReCiPe 2016 midpoint methodology:
+
+| Impact Category | Field Name | Unit |
+|---|---|---|
+| **Global Warming Potential** | `global_warming` | kg CO₂-eq |
+| **Freshwater Eutrophication** | `freshwater_eutrophication` | kg P-eq |
+| **Terrestrial Acidification** | `terrestrial_acidification` | kg SO₂-eq |
+| **Terrestrial Ecotoxicity** | `terrestrial_ecotoxicity` | CTUe |
+
+Per-kg environmental footprints (computed in OpenLCA) are embedded as constants and used by the inference engine to contextualise results for farmers in their local language.
+
+## API Surfaces
+
+<CardGroup cols={3}>
+  <Card
+    title="LCA Prediction"
+    icon="flask"
+    href="/features/lca-prediction"
+  >
+    Predict the four ReCiPe midpoint impacts for conventional (NPK+Zn) or organic (FYM+Compost) fertiliser applications.
+  </Card>
+  <Card
+    title="Field Emissions"
+    icon="cloud"
+    href="/features/field-emissions"
+  >
+    Estimate CH₄, N₂O, NO₃, NH₃, and PO₄ emissions based on synthetic-N inputs and irrigation type (flooded, AWD, rainfed).
+  </Card>
+  <Card
+    title="Fertiliser Blend"
+    icon="sliders"
+    href="/features/fertiliser-blend"
+  >
+    Optimise a mixed conventional–organic fertiliser blend using a blending factor (alpha) and compare costs in INR.
+  </Card>
+  <Card
+    title="Carbon Credits"
+    icon="leaf"
+    href="/features/carbon-credits"
+  >
+    Calculate soil-organic-carbon sequestration and tradeable credit potential (tCO₂-eq) from FYM and compost applications.
+  </Card>
+  <Card
+    title="Inference Cards"
+    icon="language"
+    href="/features/inference-cards"
+  >
+    Generate multilingual, context-rich insight cards for any LCA domain value. Supports English, Hindi, Telugu, and Marathi.
+  </Card>
+  <Card
+    title="Metadata"
+    icon="database"
+    href="/api/overview"
+  >
+    Retrieve valid input ranges, Indian market cost rates, per-kg impact data, and citation sources for transparency.
+  </Card>
+</CardGroup>
+
+## Technology Stack
+
+Carbonkrishi is built on a modern, lightweight Python stack designed for fast inference and easy deployment:
+
+| Layer | Technology |
+|---|---|
+| **Web framework** | FastAPI ≥ 0.110 |
+| **ML inference** | scikit-learn Ridge regression, joblib |
+| **Data validation** | Pydantic v2 |
+| **Server** | Uvicorn (ASGI) |
+| **Containerisation** | Docker (python:3.11-slim) |
+
+ML models are serialised as `.pkl` files and loaded once at application startup via a `lifespan` context manager, keeping per-request inference overhead minimal.
+
+<Note>
+  **No authentication required.** All Carbonkrishi API endpoints are fully open. There are no API keys, tokens, or rate limits to configure before making your first request.
+</Note>

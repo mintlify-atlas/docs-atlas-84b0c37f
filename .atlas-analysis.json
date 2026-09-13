@@ -1,0 +1,87 @@
+{
+  "projectType": "saas",
+  "projectName": "Carbonkrishi",
+  "projectDescription": "A climate-smart AI tool for rice farmers that predicts life-cycle assessment (LCA) impacts of fertiliser applications, estimates field emissions, calculates soil-carbon credit potential, and generates multilingual agronomic inference cards.",
+  "theme": "willow",
+  "primaryColor": "#d1b8ff",
+  "lightColor": null,
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "deployment"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/lca-prediction",
+              "features/field-emissions",
+              "features/fertiliser-blend",
+              "features/carbon-credits",
+              "features/inference-cards"
+            ]
+          },
+          {
+            "group": "Methodology",
+            "pages": [
+              "methodology/data-models",
+              "methodology/emission-factors",
+              "methodology/soc-credits"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/overview",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/predict",
+              "api/blend",
+              "api/emissions",
+              "api/credits",
+              "api/inference",
+              "api/meta"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "ML-powered LCA impact prediction for conventional (NPK+Zn) and organic (FYM+Compost) fertiliser regimes",
+    "Field-level GHG emission estimation (CH₄, N₂O, NO₃, NH₃, PO₄) using IPCC + SALCA factors",
+    "Conventional / organic fertiliser blend optimisation with per-hectare INR cost comparison",
+    "Soil organic carbon (SOC) credit estimator aligned to India's CCTS price band (₹600–₹900/t)",
+    "Multilingual agronomic inference cards (English, Hindi, Telugu, Marathi) with actionable recommendations",
+    "Metadata endpoint exposing input ranges, cost rates, and citation registry",
+    "FastAPI REST backend deployable via Docker on Render or any container platform",
+    "Integrated static frontend (dashboard + landing page) served by the same FastAPI process"
+  ],
+  "publicApiSurface": [
+    "POST /api/predict/conventional",
+    "POST /api/predict/organic",
+    "POST /api/blend",
+    "POST /api/emissions/field",
+    "POST /api/credits/soc",
+    "POST /api/inference/card",
+    "GET /api/meta",
+    "GET /healthz"
+  ]
+}

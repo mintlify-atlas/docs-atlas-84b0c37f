@@ -1,20 +1,96 @@
 ---
-title: "Introduction"
-description: "Welcome to your project"
+title: "Carbonkrishi: Climate-Smart AI for Rice Agriculture"
+sidebarTitle: "Home"
+description: "Carbonkrishi is an AI-powered Life Cycle Assessment tool that helps rice farmers and agronomists measure, reduce, and monetise their field's carbon footprint."
 ---
 
-Write a short description of your product here. What it does, who it's for, and what they can accomplish with it.
+Carbonkrishi turns complex agricultural life cycle science into actionable numbers. Enter your fertiliser inputs — nitrogen, phosphorus, potassium, zinc, farmyard manure, compost — and get instant predictions of four LCA impact categories, field-level greenhouse gas emissions, blend cost comparisons, soil-carbon credit potential, and multilingual agronomic advice, all through a fast REST API backed by machine-learning models trained on real paddy datasets.
 
-<Tip>
-  Ready to make this your own? Start by editing this page. Update your `docs.json` file to customize your site. Then fill out the [Quickstart](/quickstart) page.
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Introduction" icon="seedling" href="/introduction">
+    Understand what Carbonkrishi does, why it exists, and how its components fit together.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Make your first API call and get LCA impact predictions in under five minutes.
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Full reference for every REST endpoint — request schemas, response fields, and curl examples.
+  </Card>
+  <Card title="Deployment" icon="server" href="/deployment">
+    Run Carbonkrishi locally with uvicorn or deploy it as a Docker container on Render.
+  </Card>
+</CardGroup>
 
-<Card title="Quickstart" icon="rocket" href="/quickstart">
-  This card links to the quickstart page in your project.
-</Card>
-<Card title="Components" icon="puzzle-piece" href="https://mintlify.com/docs/components">
-  Add cards, callouts, steps, tabs, and more to design and structure your pages.
-</Card>
-<Card title="Settings" icon="gear" href="https://mintlify.com/docs/organize/settings">
-  Set your site name, branding, and navigation in the `docs.json` file.
-</Card>
+## What Carbonkrishi Does
+
+Carbonkrishi combines scikit-learn Ridge regression models (trained on OpenLCA-derived paddy datasets) with IPCC and SALCA emission factors to give rice practitioners a complete environmental picture of every fertiliser decision:
+
+<CardGroup cols={2}>
+  <Card title="LCA Impact Prediction" icon="chart-bar" href="/features/lca-prediction">
+    Predict global warming, eutrophication, acidification, and ecotoxicity for conventional or organic inputs.
+  </Card>
+  <Card title="Field Emissions" icon="smog" href="/features/field-emissions">
+    Estimate CH₄, N₂O, NO₃, NH₃, and PO₄ emissions per hectare per season from irrigation mode and amendments.
+  </Card>
+  <Card title="Fertiliser Blend Optimiser" icon="sliders" href="/features/fertiliser-blend">
+    Interpolate between a fully conventional and fully organic regime and compare their INR per-hectare costs.
+  </Card>
+  <Card title="Carbon Credit Estimator" icon="leaf" href="/features/carbon-credits">
+    Calculate soil organic carbon sequestration and tradeable credit potential under India's CCTS scheme.
+  </Card>
+  <Card title="Inference Cards" icon="language" href="/features/inference-cards">
+    Generate farmer-friendly explanations in English, Hindi, Telugu, or Marathi with cited recommendations.
+  </Card>
+  <Card title="Methodology" icon="microscope" href="/methodology/data-models">
+    Explore the ML models, emission factors, and SOC credit methodology behind every number.
+  </Card>
+</CardGroup>
+
+## Get Up and Running
+
+<Steps>
+  <Step title="Install dependencies">
+    Clone the repository and install the Python runtime dependencies.
+
+    ```bash
+    git clone https://github.com/jayeshid/carbonkrishi-render.git
+    cd carbonkrishi-render
+    pip install -r requirements.txt
+    ```
+  </Step>
+  <Step title="Start the API server">
+    Launch the FastAPI application from the project root. The server loads ML model artifacts at startup.
+
+    ```bash
+    uvicorn backend.main:app --reload --port 8000
+    ```
+  </Step>
+  <Step title="Make your first prediction">
+    Send a conventional fertiliser prediction request with typical rice-paddy NPK+Zn rates.
+
+    ```bash
+    curl -X POST http://localhost:8000/api/predict/conventional \
+      -H "Content-Type: application/json" \
+      -d '{"N": 135, "P": 50, "K": 35, "Zn": 20}'
+    ```
+  </Step>
+  <Step title="Read the LCA results">
+    The response contains four impact categories expressed in standard LCA units.
+
+    ```json
+    {
+      "impacts": {
+        "global_warming": 1243.5,
+        "freshwater_eutrophication": 0.42,
+        "terrestrial_acidification": 3.81,
+        "terrestrial_ecotoxicity": 12480.0
+      },
+      "warnings": []
+    }
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  No authentication is required for local deployments. All API endpoints are open by default — see [Deployment](/deployment) if you need to add access controls for production.
+</Note>

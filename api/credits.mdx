@@ -1,0 +1,93 @@
+---
+title: "POST /api/credits/soc — Soil Carbon Credit Estimation"
+sidebarTitle: "Credits"
+description: "POST /api/credits/soc — estimate soil organic carbon sequestration and CCTS-aligned carbon credit potential from FYM and compost applications with a configurable permanence buffer."
+---
+
+The SOC credits endpoint quantifies how much carbon FYM and compost inputs lock into the soil as stable humus, applies a configurable buffer for permanence risk, and returns both the carbon volume and its INR monetary value at the CCTS price band of ₹600–₹900 per tonne CO₂-eq. FYM and compost contributions are calculated separately so you can see each amendment's individual share before and after the permanence buffer.
+
+## POST /api/credits/soc
+
+### Request Body
+
+<ParamField body="manure" type="float" required>
+  Farmyard manure (FYM) input in **kg/ha**. FYM contributes a portion of its carbon to stable soil organic matter (humification coefficient). Recommended range: 5,000–15,000 kg/ha.
+</ParamField>
+
+<ParamField body="compost" type="float" required>
+  Compost input in **kg/ha**. Compost typically has a higher humification efficiency than raw FYM due to partial pre-decomposition. Recommended range: 1,000–2,000 kg/ha.
+</ParamField>
+
+<ParamField body="buffer_pct" type="float" default="20.0">
+  Percentage of gross SOC withheld as a permanence buffer, constrained to **0.0–100.0**. The buffer pool accounts for the risk that sequestered carbon may be re-released through tillage, drought, or management change. The default of 20% aligns with Verra VM0042 and Gold Standard buffer pool guidance. Set to 0 to see gross (unbuffered) credits.
+</ParamField>
+
+### Response Body
+
+<ResponseField name="fym_soc_tco2" type="float">
+  Gross SOC sequestered from FYM application in **t CO₂-eq/ha**, before applying the permanence buffer.
+</ResponseField>
+
+<ResponseField name="compost_soc_tco2" type="float">
+  Gross SOC sequestered from compost application in **t CO₂-eq/ha**, before applying the permanence buffer.
+</ResponseField>
+
+<ResponseField name="fym_credits_tco2" type="float">
+  Net carbon credits attributable to FYM after the permanence buffer has been withheld, in **t CO₂-eq/ha**.
+</ResponseField>
+
+<ResponseField name="compost_credits_tco2" type="float">
+  Net carbon credits attributable to compost after the permanence buffer, in **t CO₂-eq/ha**.
+</ResponseField>
+
+<ResponseField name="soc_before_buffer_tco2" type="float">
+  Total gross SOC from both FYM and compost combined, in **t CO₂-eq/ha** (`fym_soc_tco2 + compost_soc_tco2`).
+</ResponseField>
+
+<ResponseField name="credits_tco2" type="float">
+  Total net carbon credits after permanence buffer (`fym_credits_tco2 + compost_credits_tco2`), in **t CO₂-eq/ha**. This is the tradeable credit volume under CCTS.
+</ResponseField>
+
+<ResponseField name="buffer_withheld_tco2" type="float">
+  Amount withheld in the permanence buffer pool in **t CO₂-eq/ha** (`soc_before_buffer_tco2 - credits_tco2`). This carbon is sequestered but not monetisable until the buffer pool is released by the scheme registry.
+</ResponseField>
+
+<ResponseField name="value_low_inr" type="float">
+  Monetary value of `credits_tco2` at the CCTS floor price of **₹600/t CO₂-eq**, in INR/ha.
+</ResponseField>
+
+<ResponseField name="value_high_inr" type="float">
+  Monetary value of `credits_tco2` at the CCTS ceiling price of **₹900/t CO₂-eq**, in INR/ha.
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST https://carbonkrishi.onrender.com/api/credits/soc \
+  -H "Content-Type: application/json" \
+  -d '{
+    "manure": 10000,
+    "compost": 1500,
+    "buffer_pct": 20.0
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "fym_soc_tco2": 1.1440,
+  "compost_soc_tco2": 0.2838,
+  "fym_credits_tco2": 0.9152,
+  "compost_credits_tco2": 0.2270,
+  "soc_before_buffer_tco2": 1.4278,
+  "credits_tco2": 1.1422,
+  "buffer_withheld_tco2": 0.2856,
+  "value_low_inr": 685.32,
+  "value_high_inr": 1027.98
+}
+```
+
+<Note>
+  The CCTS price band (₹600–₹900/t CO₂-eq) is indicative and subject to change as the Carbon Credit Trading Scheme (MoEFCC/BEE) matures. Actual market prices may differ. Always verify current prices with an accredited aggregator before making financial projections.
+</Note>

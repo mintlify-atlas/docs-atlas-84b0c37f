@@ -1,0 +1,150 @@
+---
+title: "Emission Factors and Field GHG Calculation Methodology"
+sidebarTitle: "Emission Factors"
+description: "Field emissions in Carbonkrishi are computed using IPCC 2019 N₂O factors, IPCC rice CH₄ defaults, and SALCA NH₃ volatilisation rates, adjusted for irrigation mode and amendments."
+---
+
+Unlike LCA prediction, field emission estimation in Carbonkrishi is **fully deterministic** — no machine learning is involved. The `compute_field_emissions()` function applies published emission factors from IPCC 2019 (N₂O), IPCC rice cultivation guidelines (CH₄), and the Swiss SALCA methodology (NH₃, PO₄) directly to the fertiliser application rates and irrigation regime supplied by the caller. The result is a set of five pollutant loads in **kg/ha/season** that can be compared against regulatory thresholds and field monitoring data.
+
+## Irrigation Emission Factors
+
+Water management is the dominant driver of methane emissions from flooded paddies. Carbonkrishi supports three irrigation modes, each with its own set of emission factors derived from IPCC rice methane guidelines and the Gold Standard AWD methodology:
+
+| Irrigation Mode | CH₄ Factor | N₂O Factor | NH₃ Multiplier |
+|---|---|---|---|
+| Fully Flooded | 0.793 | 0.00471 | 1.00 |
+| Alternate Wetting and Drying | 0.120 | 0.00550 | 1.05 |
+| Rainfed | 0.050 | 0.00620 | 1.08 |
+
+- **CH₄ factor** — kg of methane emitted per kg of synthetic N applied, scaled by flooding duration.
+- **N₂O factor** — kg of nitrous oxide emitted per kg of synthetic N applied (IPCC 2019 Tier 1).
+- **NH₃ multiplier** — dimensionless scalar applied to the base ammonia volatilisation formula; higher values reflect increased atmospheric exchange under drier or intermittently wetted canopy conditions.
+
+## Emission Calculation Formulas
+
+Given `synthetic_n` (kg N/ha) and `synthetic_p` (kg P/ha), and the per-mode factors above, the five emission loads are calculated as follows:
+
+### Methane (CH₄)
+
+```
+CH4 = synthetic_n × ch4_factor
+```
+
+Methane production in waterlogged soils is driven by anaerobic decomposition. The IPCC rice factor linearly scales with nitrogen load as a proxy for total organic substrate availability.
+
+### Nitrous Oxide (N₂O)
+
+```
+N2O = synthetic_n × n2o_factor
+```
+
+N₂O results from nitrification and denitrification of synthetic nitrogen in the soil. The factor follows IPCC 2019 Tier 1 emission factors for nitrogen applied to croplands.
+
+### Nitrate Leaching (NO₃)
+
+```
+NO3 = synthetic_n × 0.03986
+```
+
+A fixed 3.986% leaching fraction is applied to synthetic N, representing nitrate lost to drainage water. This fraction is consistent with IPCC default leaching/runoff emission factors for irrigated rice.
+
+### Phosphate Runoff (PO₄)
+
+```
+PO4 = synthetic_p × 0.03065
+```
+
+3.065% of applied phosphorus is assumed to reach surface water as phosphate, based on the SALCA Swiss Agricultural LCA methodology for paddy systems.
+
+### Ammonia Volatilisation (NH₃)
+
+```
+NH3 = synthetic_n × 0.364 × nh3_mult + synthetic_p × 0.005
+```
+
+The base volatilisation fraction for nitrogen is 36.4% (SALCA), scaled by the irrigation-mode NH₃ multiplier. A small secondary term accounts for phosphate fertiliser off-gassing.
+
+## Amendment Adjustments
+
+When **any organic amendment** (Farm Yard Manure or Compost) is declared in `amendment_1` or `amendment_2`, the following multiplicative adjustments are applied to the emission outputs **after** the base calculations:
+
+| Emission | Adjustment | Rationale |
+|---|---|---|
+| N₂O | × 0.95 | Organic C improves microbial immobilisation, slightly reducing net N₂O flux |
+| NH₃ | × 1.08 | Additional organic-N substrate increases ammonia volatilisation potential |
+| CH₄ | × 1.02 | Readily decomposable organic matter provides a small additional methanogenic substrate |
+
+The same set of adjustments is applied regardless of whether one or two amendments are present — the factors represent the qualitative presence of organic additions rather than a proportional dose response.
+
+```python
+amendment_count = sum(1 for a in (amendment_1, amendment_2) if a and a != "None")
+if amendment_count > 0:
+    n2o *= 0.95
+    nh3 *= 1.08
+    ch4 *= 1.02
+```
+
+## Health and Environment Thresholds
+
+Emission outputs are compared against the following reference values to generate risk flags in the API response and inference cards:
+
+### Water Quality
+
+| Parameter | Threshold | Source |
+|---|---|---|
+| NO₃ (nitrate) in drinking water | 50 mg/L | WHO Nitrate/Nitrite Fact Sheet (2022) |
+| NO₃ (nitrate) in drinking water | 45 mg/L | BIS IS 10500:2012 Indian Drinking Water Standard |
+| PO₄ (phosphate) — algal bloom trigger | 0.1 mg P/L | SALCA / Frontiers in Sustainable Food Systems (2022) |
+
+Nitrate leaching losses exceeding the WHO limit (50 mg/L) indicate a risk of groundwater contamination, while phosphate runoff above 0.1 mg P/L can trigger eutrophication and harmful algal blooms in nearby waterbodies.
+
+### Climate
+
+| Parameter | Value | Source |
+|---|---|---|
+| IPCC CH₄ default range for flooded paddies | 200–500 kg/ha/season | IPCC rice methane guidelines |
+| CH₄ global warming potential (GWP100, AR6) | 27.9× CO₂ | IPCC AR6 Working Group I (2021) |
+| N₂O global warming potential (GWP100, AR6) | 273× CO₂ | IPCC AR6 Working Group I (2021) |
+
+The extremely high GWP of N₂O (273×) means that even small nitrous oxide fluxes can dominate the overall climate impact of a rice field — often exceeding the contribution of methane when urea is applied at high rates.
+
+## Alternate Wetting and Drying (AWD)
+
+Alternate Wetting and Drying is the irrigation practice of periodically allowing the field to dry to a controlled soil-water level before re-flooding. It is validated by the Gold Standard AWD Methane Reduction Methodology and is widely recommended by IRRI and ICAR.
+
+The effect on methane is dramatic: the CH₄ factor drops from **0.793** (Fully Flooded) to **0.120** (AWD) — an **85% reduction** in methane load per kg of nitrogen applied. Because methane is the dominant GHG in flooded rice, this translates directly into a large reduction in the total CO₂-equivalent footprint of the crop.
+
+| Mode | CH₄ Factor | Relative to Fully Flooded |
+|---|---|---|
+| Fully Flooded | 0.793 | baseline |
+| Alternate Wetting and Drying | 0.120 | −84.9% |
+| Rainfed | 0.050 | −93.7% |
+
+<Tip>
+  AWD is the single highest-leverage action for reducing methane in flooded rice systems. Switching from continuous flooding to AWD can cut the CH₄ load by over 85% with no reduction in yield when soil moisture is managed within the safe AWD threshold (typically −15 cm pore-water pressure).
+</Tip>
+
+## Citation Registry
+
+All emission factors and thresholds used in Carbonkrishi's field emission module are sourced from the following peer-reviewed guidelines and regulatory standards:
+
+| Key | Full Citation | URL |
+|---|---|---|
+| `epa` | EPA GHG Equivalencies Calculator (2024) | https://www.epa.gov/energy/greenhouse-gas-equivalencies-calculator-calculations-and-references |
+| `ipcc_ar6` | IPCC AR6 Working Group I (2021) | https://www.ipcc.ch/report/ar6/wg1/ |
+| `ipcc_2019` | IPCC 2019 Refinement — N₂O Emission Factors | https://www.ipcc-nggip.iges.or.jp/public/2019rf/ |
+| `ipcc_rice` | IPCC — Methane Emissions from Rice Cultivation | https://www.ipcc-nggip.iges.or.jp/public/gl/guidelin/ch4ref5.pdf |
+| `frontiers22` | Frontiers in Sustainable Food Systems (2022) | https://www.frontiersin.org/journals/sustainable-food-systems/articles/10.3389/fsufs.2022.868479/full |
+| `who_no3` | WHO Nitrate/Nitrite Drinking-water Fact Sheet (2022) | https://cdn.who.int/media/docs/default-source/wash-documents/water-safety-and-quality/chemical-fact-sheets-2022/nitrate-and-nitrite-fact-sheet-2022.pdf |
+| `bis` | BIS IS 10500:2012 — Indian Drinking Water Standard | https://www.bis.gov.in/ |
+| `gold_awm` | Gold Standard — AWD Methane Reduction Methodology | https://globalgoals.goldstandard.org/standards/437_V1.0_LUF_AGR_Methane-emission-reduction-by-AWM-practice-in-rice-cultivation.pdf |
+| `who_air` | WHO Global Air Quality Guidelines (2021) | https://www.who.int/publications/i/item/9789240034228 |
+| `usda` | USDA Forest Service — Urban Tree Database | https://www.fs.usda.gov/treesearch/pubs/52933 |
+| `moefcc_ccts` | MoEFCC / BEE — Carbon Credit Trading Scheme (2024) | https://moef.gov.in/ |
+| `verra` | Verra VM0042 — Improved Agricultural Land Management | https://verra.org/methodologies/vm0042-methodology-for-improved-agricultural-land-management-v2-0/ |
+| `icar_inm` | ICAR — Integrated Nutrient Management | https://icar.org.in/ |
+| `salca` | SALCA — Swiss Agricultural LCA Methodology | https://www.agroscope.admin.ch/agroscope/en/home/topics/environment-resources/life-cycle-assessment/salca.html |
+
+---
+
+**See also:** [SOC Credits methodology](/methodology/soc-credits) · [Field Emissions API reference](/features/field-emissions)

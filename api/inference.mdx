@@ -1,0 +1,182 @@
+---
+title: "POST /api/inference/card — Multilingual Agronomic Inference Cards"
+sidebarTitle: "Inference"
+description: "POST /api/inference/card — generate a farmer-facing explanation card for an LCA or emission metric in English, Hindi, Telugu, or Marathi with color-coded severity and cited sources."
+---
+
+The inference card endpoint converts a numeric domain value into a plain-language explanation card with actionable agronomic recommendations, a severity colour, and a list of cited references. Cards are available in four languages — English, Hindi, Telugu, and Marathi — and adapt their message based on threshold comparisons against domain-specific reference values. The optional `ctx` object unlocks richer, context-aware guidance (e.g. irrigation mode for CH₄, zinc level for ecotoxicity).
+
+## POST /api/inference/card
+
+### Request Body
+
+<ParamField body="domain" type="string" required>
+  The metric domain to interpret. Must be exactly one of:
+
+  | Value | Description |
+  |-------|-------------|
+  | `gwp_total` | Total global warming potential (kg CO₂-eq/ha) |
+  | `ch4` | Methane emissions (kg CH₄/ha/season) |
+  | `n2o` | Nitrous oxide emissions (kg N₂O/ha/season) |
+  | `no3` | Nitrate leaching potential (kg NO₃/ha/season) |
+  | `nh3` | Ammonia volatilisation (kg NH₃/ha/season) |
+  | `po4` | Phosphate runoff potential (kg PO₄/ha/season) |
+  | `ecotox` | Terrestrial ecotoxicity (CTUe/ha) |
+  | `credits` | Net SOC carbon credits (t CO₂-eq/ha) |
+  | `blend_savings` | GWP saving from a fertiliser blend scenario (kg CO₂-eq/ha) |
+</ParamField>
+
+<ParamField body="value" type="float" required>
+  The numeric metric value to interpret. Must match the natural units of the chosen domain (see the domain table above). The engine compares this value against curated reference thresholds to determine a severity band (low / mid / high) and select the appropriate message.
+</ParamField>
+
+<ParamField body="ctx" type="object">
+  Optional context dictionary that enables domain-specific adaptive messaging. The accepted keys vary by domain — see the table below. Keys not recognised by the domain handler are silently ignored.
+
+  | Domain | Supported `ctx` keys | Type | Effect |
+  |--------|----------------------|------|--------|
+  | `gwp_total` | `irrigation` | string | Tailors AWD advice if already practising AWD |
+  | `gwp_total` | `amendments_used` | boolean | Adds FYM recommendation if no amendments are in use |
+  | `ch4` | `irrigation` | string | Selects AWD-specific or rainfed-specific messaging |
+  | `n2o` | `synthetic_n` | float | Triggers high-N dose-reduction advice if > 145 kg/ha |
+  | `ecotox` | `zinc` | float | Flags zinc over-application if > 20 kg/ha |
+  | `blend_savings` | `gwp_saved` | float | GWP reduction in kg CO₂-eq/ha relative to conventional |
+  | `blend_savings` | `cost_delta` | float | Cost difference in INR/ha (positive = extra cost, negative = saving) |
+  | `blend_savings` | `alpha` | float | Blend fraction 0.0–1.0 used for the scenario |
+  | All others | — | — | No ctx needed; `ctx` is ignored if supplied |
+</ParamField>
+
+<ParamField body="lang" type="string" default="en">
+  Response language. One of `"en"` (English), `"hi"` (Hindi), `"te"` (Telugu), `"mr"` (Marathi). Marathi falls back to Hindi for any text string where an explicit Marathi translation has not been provided.
+</ParamField>
+
+### Response Body
+
+<ResponseField name="title" type="string">
+  Localised card title including an emoji severity indicator. Examples: `"🌍 Global Warming"`, `"🔥 मीथेन (CH₄)"`, `"💎 కార్బన్ క్రెడిట్ సామర్థ్యం"`.
+</ResponseField>
+
+<ResponseField name="body_html" type="string">
+  HTML body string containing the explanation and recommendations. Only `<b>` and `<i>` inline tags are used — these come from hand-written templates with no user input, so direct `innerHTML` rendering on the client is safe. Numeric values are embedded with locale-appropriate formatting (commas, decimal places).
+</ResponseField>
+
+<ResponseField name="color" type="string">
+  Hex colour code reflecting the severity band:
+
+  | Color | Hex | Meaning |
+  |-------|-----|---------|
+  | Green | `#16a34a` | Below the lower threshold — low risk or good performance |
+  | Amber | `#f59e0b` | Within the expected range — moderate risk |
+  | Red | `#ef4444` | Above the upper threshold — high risk, action recommended |
+</ResponseField>
+
+<ResponseField name="refs" type="object[]">
+  Array of citation objects drawn from the central source registry. Use these to populate a "References" section on the card.
+
+  <Expandable title="ref object fields">
+    <ResponseField name="key" type="string">
+      Short citation key, e.g. `"ipcc_ar6"`, `"gold_awm"`, `"moefcc_ccts"`.
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Full display name of the source, e.g. `"IPCC AR6 Working Group I (2021)"`.
+    </ResponseField>
+    <ResponseField name="url" type="string">
+      Canonical URL for the cited document or dataset.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Requests
+
+**Global warming impact — English:**
+
+```bash
+curl -X POST https://carbonkrishi.onrender.com/api/inference/card \
+  -H "Content-Type: application/json" \
+  -d '{
+    "domain": "gwp_total",
+    "value": 5200,
+    "ctx": {
+      "irrigation": "Fully Flooded",
+      "amendments_used": false
+    },
+    "lang": "en"
+  }'
+```
+
+```json
+{
+  "title": "🌍 Global Warming",
+  "body_html": "Your <b>5,200 kg CO₂-eq/ha</b> sits in the <b>middle</b> of the typical 3,000–7,000 kg/ha range — equivalent to driving <b>~21,311 km</b>. There's clear room to improve: switching to <b>AWD irrigation</b> cuts CH₄ by 30–70%, and splitting urea into 3 doses cuts N₂O ~20%; <b>start with 5 t/ha FYM</b> — biggest win for both emissions and soil carbon credits.",
+  "color": "#f59e0b",
+  "refs": [
+    { "key": "epa", "name": "EPA GHG Equivalencies Calculator (2024)", "url": "https://www.epa.gov/energy/greenhouse-gas-equivalencies-calculator-calculations-and-references" },
+    { "key": "frontiers22", "name": "Frontiers in Sustainable Food Systems (2022)", "url": "https://www.frontiersin.org/journals/sustainable-food-systems/articles/10.3389/fsufs.2022.868479/full" },
+    { "key": "ipcc_ar6", "name": "IPCC AR6 Working Group I (2021)", "url": "https://www.ipcc.ch/report/ar6/wg1/" },
+    { "key": "gold_awm", "name": "Gold Standard - AWD Methane Reduction Methodology", "url": "https://globalgoals.goldstandard.org/standards/437_V1.0_LUF_AGR_Methane-emission-reduction-by-AWM-practice-in-rice-cultivation.pdf" }
+  ]
+}
+```
+
+---
+
+**Methane emissions — Hindi, with AWD context:**
+
+```bash
+curl -X POST https://carbonkrishi.onrender.com/api/inference/card \
+  -H "Content-Type: application/json" \
+  -d '{
+    "domain": "ch4",
+    "value": 280,
+    "ctx": {
+      "irrigation": "Alternate Wetting and Drying"
+    },
+    "lang": "hi"
+  }'
+```
+
+```json
+{
+  "title": "🔥 मीथेन (CH₄)",
+  "body_html": "आपके खेत से <b>280.0 kg CH₄/ha/season</b> (= 7,812 kg CO₂-eq) निकल रहा है, जो IPCC default 200–500 kg/ha के बीच है। AWD अपनाने से <b>CH₄ 30–70% कम</b> हो सकता है (≈ 84–196 kg/ha बचत, CCTS दर पर ₹1,058–₹2,471/ha)। आप पहले से AWD कर रहे हैं — अगला लाभ neem-coated urea और 5 t/ha FYM से मिलेगा",
+  "color": "#f59e0b",
+  "refs": [
+    { "key": "ipcc_rice", "name": "IPCC - Methane Emissions from Rice Cultivation", "url": "https://www.ipcc-nggip.iges.or.jp/public/gl/guidelin/ch4ref5.pdf" },
+    { "key": "gold_awm", "name": "Gold Standard - AWD Methane Reduction Methodology", "url": "https://globalgoals.goldstandard.org/standards/437_V1.0_LUF_AGR_Methane-emission-reduction-by-AWM-practice-in-rice-cultivation.pdf" },
+    { "key": "ipcc_ar6", "name": "IPCC AR6 Working Group I (2021)", "url": "https://www.ipcc.ch/report/ar6/wg1/" }
+  ]
+}
+```
+
+---
+
+**Carbon credits — Marathi:**
+
+```bash
+curl -X POST https://carbonkrishi.onrender.com/api/inference/card \
+  -H "Content-Type: application/json" \
+  -d '{
+    "domain": "credits",
+    "value": 1.142,
+    "lang": "mr"
+  }'
+```
+
+```json
+{
+  "title": "💎 कार्बन क्रेडिट क्षमता",
+  "body_html": "🟡 तुमची क्षमता <b>1.142 t CO₂-eq/ha</b> = <b>₹685–₹1,028/ha</b> (CCTS दर ₹600–₹900/t) — म्हणजे <b>~2.3 bags युरिया</b> किंवा <b>~2.9 दिवसांची मजुरी</b>. ही मध्यम आहे. 3 हंगामांचे शेणखत/कंपोस्टचे log, फोटो आणि soil-test data ठेवा.",
+  "color": "#f59e0b",
+  "refs": [
+    { "key": "moefcc_ccts", "name": "MoEFCC / BEE - Carbon Credit Trading Scheme (2024)", "url": "https://moef.gov.in/" },
+    { "key": "verra", "name": "Verra VM0042 - Improved Agricultural Land Management", "url": "https://verra.org/methodologies/vm0042-methodology-for-improved-agricultural-land-management-v2-0/" },
+    { "key": "gold_awm", "name": "Gold Standard - AWD Methane Reduction Methodology", "url": "https://globalgoals.goldstandard.org/standards/437_V1.0_LUF_AGR_Methane-emission-reduction-by-AWM-practice-in-rice-cultivation.pdf" }
+  ]
+}
+```
+
+### Error Responses
+
+| Status | Detail |
+|--------|--------|
+| `400 Bad Request` | `domain` value is not one of the nine recognised strings. Response body: `{"detail": "Unknown domain: <value>"}` |

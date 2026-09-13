@@ -1,0 +1,167 @@
+---
+title: "Soil Organic Carbon Credit Estimation for Rice Farmers"
+sidebarTitle: "Carbon Credits"
+description: "Estimate soil organic carbon sequestration from FYM and compost inputs and calculate tradeable carbon credit potential under India's CCTS price band of ₹600–₹900 per tonne CO2-eq."
+---
+
+Carbonkrishi's SOC (Soil Organic Carbon) credit estimator quantifies how much carbon FYM and compost inputs lock into the soil over a cropping season. It applies a configurable **permanence buffer** — defaulting to 20% — to account for reversal risk, then translates the net sequestered carbon into a monetary value range using India's **Carbon Credit Trading Scheme (CCTS)** price band of ₹600–₹900 per tonne CO₂-eq.
+
+This estimate gives rice farmers a concrete INR figure to compare against the cost premium of organic inputs, enabling data-driven decisions about whether to invest in an organic nutrient management strategy.
+
+---
+
+## How SOC Is Calculated
+
+Carbon sequestration is estimated from the physical and chemical properties of each organic amendment:
+
+| Parameter | Farm Yard Manure | Compost |
+|---|---|---|
+| Dry Matter (%) | 25% | 55% |
+| Carbon Content (%) | 25% | 25% |
+| Humification Coefficient | 0.25 | 0.35 |
+
+The humification coefficient represents the fraction of organic carbon that stabilises into humus rather than being mineralised back to CO₂.
+
+**SOC formula** (applied separately to FYM and compost):
+
+```text
+SOC (t CO₂-eq) = (input_kg × DM% × C% × H%) / 1000 × 3.667
+```
+
+Where `3.667` is the C → CO₂ molecular weight conversion factor (44/12).
+
+**Example for 10,000 kg FYM:**
+
+```text
+SOC = (10000 × 0.25 × 0.25 × 0.25) / 1000 × 3.667
+    = (156.25 / 1000) × 3.667
+    = 0.5730 t CO₂-eq/ha
+```
+
+### Permanence Buffer
+
+A buffer percentage (default **20%**, range 0–100%) is withheld from the tradeable credit total to account for the risk that sequestered carbon may be re-emitted (e.g., if the farmer stops applying amendments or tills deeply):
+
+```text
+credits_tco2 = soc_before_buffer_tco2 × (1 - buffer_pct / 100)
+buffer_withheld_tco2 = soc_before_buffer_tco2 - credits_tco2
+```
+
+---
+
+## Example Request
+
+```bash
+curl -X POST http://localhost:8000/api/credits/soc \
+  -H "Content-Type: application/json" \
+  -d '{"manure": 10000, "compost": 1500, "buffer_pct": 20}'
+```
+
+**Example response:**
+
+```json
+{
+  "fym_soc_tco2": 0.5730,
+  "compost_soc_tco2": 0.2869,
+  "fym_credits_tco2": 0.4584,
+  "compost_credits_tco2": 0.2295,
+  "soc_before_buffer_tco2": 0.8599,
+  "credits_tco2": 0.6879,
+  "buffer_withheld_tco2": 0.1720,
+  "value_low_inr": 412.74,
+  "value_high_inr": 619.11
+}
+```
+
+---
+
+## Response Fields
+
+<ResponseField name="fym_soc_tco2" type="float">
+  Gross SOC sequestered from the FYM input before buffer, in t CO₂-eq/ha.
+</ResponseField>
+
+<ResponseField name="compost_soc_tco2" type="float">
+  Gross SOC sequestered from the compost input before buffer, in t CO₂-eq/ha.
+</ResponseField>
+
+<ResponseField name="fym_credits_tco2" type="float">
+  Tradeable credits from FYM after applying the buffer, in t CO₂-eq/ha.
+</ResponseField>
+
+<ResponseField name="compost_credits_tco2" type="float">
+  Tradeable credits from compost after applying the buffer, in t CO₂-eq/ha.
+</ResponseField>
+
+<ResponseField name="soc_before_buffer_tco2" type="float">
+  Total gross SOC from all amendments before the permanence buffer is applied, in t CO₂-eq/ha.
+</ResponseField>
+
+<ResponseField name="credits_tco2" type="float">
+  Net tradeable carbon credits after deducting the buffer, in t CO₂-eq/ha.
+</ResponseField>
+
+<ResponseField name="buffer_withheld_tco2" type="float">
+  Amount withheld in the permanence buffer pool, in t CO₂-eq/ha.
+</ResponseField>
+
+<ResponseField name="value_low_inr" type="float">
+  Monetary value of credits at the CCTS floor price of ₹600/t CO₂-eq.
+</ResponseField>
+
+<ResponseField name="value_high_inr" type="float">
+  Monetary value of credits at the CCTS ceiling price of ₹900/t CO₂-eq.
+</ResponseField>
+
+---
+
+## Request Schema
+
+<ParamField body="manure" type="float" required>
+  Farm Yard Manure application rate in kg/ha. Must be ≥ 0.
+</ParamField>
+
+<ParamField body="compost" type="float" required>
+  Compost application rate in kg/ha. Must be ≥ 0.
+</ParamField>
+
+<ParamField body="buffer_pct" type="float" default="20.0">
+  Permanence buffer percentage to withhold from tradeable credits. Range: 0–100. Standard registry practice is 10–30%.
+</ParamField>
+
+---
+
+## India's Carbon Credit Trading Scheme (CCTS)
+
+India's Carbon Credit Trading Scheme, notified by MoEFCC and administered through BEE (Bureau of Energy Efficiency), establishes a domestic market for verified carbon reductions and removals. Agricultural soil carbon sequestration is an eligible activity under the scheme.
+
+**Current indicative CCTS price band: ₹600–₹900 per tonne CO₂-eq.**
+
+### Registering Your Credits
+
+To monetise SOC credits, farmers need:
+
+<Steps>
+  <Step title="Maintain a 3-season input log">
+    Record FYM and compost quantities applied per season with dates, quantities, and source supplier details. Photos and GPS-tagged field records strengthen the claim.
+  </Step>
+  <Step title="Conduct baseline soil tests">
+    A soil organic carbon baseline test at accredited labs (ICAR / KVK) is required before the first crediting period begins.
+  </Step>
+  <Step title="Engage a verified aggregator">
+    Indian farmers can register through aggregators operating under NCDEX (domestic CCTS), Verra (VM0042 — Improved Agricultural Land Management), or Gold Standard (AWD Methane Reduction). Aggregators handle MRV (Monitoring, Reporting, and Verification) on your behalf.
+  </Step>
+  <Step title="Claim and trade credits">
+    After third-party verification at the end of the crediting period, carbon credits are issued to your account and can be traded on the Indian Carbon Market or international registries.
+  </Step>
+</Steps>
+
+<Note>
+  The Carbonkrishi SOC estimate is an **indicative screening tool** based on standard humification coefficients. Actual issuable credits depend on the MRV methodology adopted by your chosen aggregator, baseline soil OC levels, and additionality requirements. Always confirm with a registered carbon project developer before committing to an input strategy for credit generation.
+</Note>
+
+---
+
+## Full API Reference
+
+See the interactive OpenAPI docs at [/api/credits](/api/credits) for full schema details. For the methodology behind the humification assumptions and CCTS context, see [SOC Credit Methodology](/methodology/soc-credits).

@@ -1,0 +1,179 @@
+---
+title: "LCA Impact Prediction for Rice Fertiliser Inputs"
+sidebarTitle: "LCA Prediction"
+description: "Use ML-powered Ridge regression to predict four LCA impact categories for conventional NPK+Zn or organic FYM+Compost fertiliser applications per hectare."
+---
+
+Life Cycle Assessment (LCA) prediction is the core analytical capability of Carbonkrishi. Given a fertiliser input rate per hectare, the API returns four standardised environmental impact scores — allowing farmers, agronomists, and agri-finance teams to compare the cradle-to-field footprint of different nutrient management strategies before a single kilogram is applied.
+
+Two fertiliser regimes are supported: **conventional** (synthetic NPK + Zinc) and **organic** (Farm Yard Manure + Compost). Both regimes share the same four output impact categories, making side-by-side comparison straightforward.
+
+## Impact Categories
+
+| Category | Unit | Description |
+|---|---|---|
+| Global Warming | kg CO₂-eq | Greenhouse gas potential of fertiliser manufacturing and application |
+| Freshwater Eutrophication | kg P-eq | Phosphorus runoff potential into freshwater bodies |
+| Terrestrial Acidification | kg SO₂-eq | SO₂-equivalent acidifying emissions to soil and water |
+| Terrestrial Ecotoxicity | CTUe | Comparative Toxic Unit for ecosystems — dominated by Zinc |
+
+---
+
+## Conventional Prediction
+
+<ParamField body="N" type="float" required>
+  Nitrogen application rate in kg/ha (recommended: 120–150)
+</ParamField>
+
+<ParamField body="P" type="float" required>
+  Phosphorus application rate in kg/ha (recommended: 40–60)
+</ParamField>
+
+<ParamField body="K" type="float" required>
+  Potassium application rate in kg/ha (recommended: 30–40)
+</ParamField>
+
+<ParamField body="Zn" type="float" required>
+  Zinc application rate in kg/ha (recommended: 10–30)
+</ParamField>
+
+**Endpoint:** `POST /api/predict/conventional`
+
+```bash
+curl -X POST http://localhost:8000/api/predict/conventional \
+  -H "Content-Type: application/json" \
+  -d '{"N": 135, "P": 50, "K": 35, "Zn": 20}'
+```
+
+**Example response:**
+
+```json
+{
+  "impacts": {
+    "global_warming": 1052.47,
+    "freshwater_eutrophication": 0.2318,
+    "terrestrial_acidification": 3.841,
+    "terrestrial_ecotoxicity": 13945.2
+  },
+  "warnings": []
+}
+```
+
+### Recommended Input Ranges
+
+Inputs outside the training distribution are still accepted, but a `warnings` array is populated for any out-of-range value:
+
+| Nutrient | Low (kg/ha) | High (kg/ha) |
+|---|---|---|
+| N | 120 | 150 |
+| P | 40 | 60 |
+| K | 30 | 40 |
+| Zn | 10 | 30 |
+
+---
+
+## Organic Prediction
+
+<ParamField body="manure" type="float" required>
+  Farm Yard Manure (FYM) application rate in kg/ha (recommended: 5,000–15,000)
+</ParamField>
+
+<ParamField body="compost" type="float" required>
+  Compost application rate in kg/ha (recommended: 1,000–2,000)
+</ParamField>
+
+**Endpoint:** `POST /api/predict/organic`
+
+```bash
+curl -X POST http://localhost:8000/api/predict/organic \
+  -H "Content-Type: application/json" \
+  -d '{"manure": 10000, "compost": 1500}'
+```
+
+**Example response:**
+
+```json
+{
+  "impacts": {
+    "global_warming": 318.92,
+    "freshwater_eutrophication": 0.0741,
+    "terrestrial_acidification": 1.204,
+    "terrestrial_ecotoxicity": 2108.6
+  },
+  "warnings": []
+}
+```
+
+### Recommended Input Ranges
+
+| Input | Low (kg/ha) | High (kg/ha) |
+|---|---|---|
+| Manure | 5,000 | 15,000 |
+| Compost | 1,000 | 2,000 |
+
+<Warning>
+  If the organic model failed its internal feature-schema self-test during startup, the `/api/predict/organic` endpoint returns **HTTP 503 Service Unavailable** with a detail message. The conventional endpoint and all other endpoints remain operational. Check the deployment logs for `OrganicUnavailableError`.
+</Warning>
+
+---
+
+## Input Validation and Warnings
+
+Every prediction response includes a `warnings` array. Each element is a `ValidationItem` describing which nutrient is outside the recommended agronomic range:
+
+<ResponseField name="warnings[].nutrient" type="string">
+  Name of the out-of-range nutrient — one of `N`, `P`, `K`, `Zn`, `Manure`, or `Compost`.
+</ResponseField>
+
+<ResponseField name="warnings[].value" type="float">
+  The submitted value in kg/ha.
+</ResponseField>
+
+<ResponseField name="warnings[].low" type="float">
+  Lower bound of the recommended range in kg/ha.
+</ResponseField>
+
+<ResponseField name="warnings[].high" type="float">
+  Upper bound of the recommended range in kg/ha.
+</ResponseField>
+
+<ResponseField name="warnings[].unit" type="string">
+  Always `"kg/ha"`.
+</ResponseField>
+
+**Example warning object** (Zn submitted as 5 kg/ha, below the 10 kg/ha minimum):
+
+```json
+{
+  "nutrient": "Zn",
+  "value": 5.0,
+  "low": 10.0,
+  "high": 30.0,
+  "unit": "kg/ha"
+}
+```
+
+Warnings do **not** block the prediction — they are informational flags for the calling application to surface to the user.
+
+---
+
+## Per-kg Environmental Footprints
+
+The underlying impact factors, computed independently in OpenLCA, show the environmental cost of each nutrient per kilogram applied:
+
+| Input | Global Warming (kg CO₂-eq/kg) | Terrestrial Acidification (kg SO₂-eq/kg) | Freshwater Eutrophication (kg P-eq/kg) | Terrestrial Ecotoxicity (CTUe/kg) |
+|---|---|---|---|---|
+| Nitrogen (N) | 4.964 | 0.02156 | 0.001469 | 5.187 |
+| Phosphorus (P) | 2.907 | 0.01436 | 0.001000 | 4.168 |
+| Potassium (K) | 3.016 | 0.01240 | 0.000679 | 2.671 |
+| Zinc (Zn) | 0.777 | 0.00645 | 0.000460 | 612.916 |
+
+<Tip>
+  Zinc has a disproportionate ecotoxicity impact — **612.9 CTUe/kg** vs 2.7–5.2 for N, P, K. Keep Zn at the lower end of the recommended range (10 kg/ha) unless a soil test confirms deficiency. A 10 kg/ha reduction in Zn can cut total ecotoxicity by more than a complete elimination of synthetic N, P, and K combined.
+</Tip>
+
+---
+
+## Full API Reference
+
+See the interactive OpenAPI docs at [/api/predict](/api/predict) for request/response schemas, error codes, and live try-it-out support.

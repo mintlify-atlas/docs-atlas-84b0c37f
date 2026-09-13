@@ -1,0 +1,137 @@
+---
+title: "Soil Organic Carbon Sequestration and CCTS Credit Methodology"
+sidebarTitle: "SOC Credits"
+description: "Carbonkrishi estimates soil organic carbon (SOC) from FYM and compost using humification coefficients, applies a permanence buffer, and values credits at India's CCTS price band."
+---
+
+Soil organic carbon (SOC) sequestration is the process by which organic matter added to soil is stabilised into long-lived humus rather than being rapidly mineralised and re-emitted as CO₂. Carbonkrishi quantifies this for **farmyard manure (FYM)** and **compost** using established dry-matter, carbon-content, and humification coefficients drawn from agronomic literature, then converts the result to CO₂-equivalents and applies a permanence buffer consistent with carbon registry practice (Verra VM0042, Gold Standard). The final output is a credit estimate in **t CO₂-eq/ha/season** and a monetary valuation under India's Carbon Credit Trading Scheme (CCTS).
+
+## SOC Calculation Parameters
+
+The following coefficients are applied to each organic input to determine how much carbon is durably sequestered per kilogram of material applied. All three coefficients are applied multiplicatively.
+
+| Input | Dry Matter (DM) | Carbon Content (C) | Humification Coefficient (H) |
+|---|---|---|---|
+| FYM (Farm Yard Manure) | 25% | 25% | 25% |
+| Compost | 55% | 25% | 35% |
+
+- **Dry Matter %** — the fraction of the fresh weight that is not water. Compost is significantly drier than fresh manure, giving it a higher effective carbon concentration per kg applied.
+- **Carbon Content %** — the fraction of dry matter that is organic carbon. Both materials are assumed at 25% C on a dry-weight basis, consistent with standard values in ICAR INM guidelines.
+- **Humification Coefficient %** — the fraction of organic carbon that is converted into stable humus rather than being mineralised. Compost's higher value (35% vs 25%) reflects its more advanced decomposition state at the point of application.
+- **C → CO₂ conversion factor: 3.667** — the ratio of the molecular weight of CO₂ (44 g/mol) to carbon (12 g/mol). Applied to convert kg of stabilised carbon to kg of CO₂-equivalent.
+
+## Step-by-Step Calculation
+
+<Steps>
+  <Step title="Stabilised carbon (kg C/ha)">
+    For each input, multiply the application rate by the three coefficients:
+
+    ```
+    stabilised_C_fym     = manure_kg  × 0.25 × 0.25 × 0.25
+    stabilised_C_compost = compost_kg × 0.55 × 0.25 × 0.35
+    ```
+  </Step>
+  <Step title="CO₂ equivalent (t CO₂-eq/ha)">
+    Convert kg of stabilised carbon to tonnes of CO₂-equivalent using the C→CO₂ factor:
+
+    ```
+    fym_soc_tco2     = (stabilised_C_fym     / 1000) × 3.667
+    compost_soc_tco2 = (stabilised_C_compost / 1000) × 3.667
+    ```
+  </Step>
+  <Step title="Total SOC before buffer">
+    Sum both contributions:
+
+    ```
+    soc_before_buffer_tco2 = fym_soc_tco2 + compost_soc_tco2
+    ```
+  </Step>
+  <Step title="Credits after permanence buffer">
+    Apply the buffer deduction. The default buffer is 20%, configurable from 0–100%:
+
+    ```
+    keep           = 1 - buffer_pct / 100
+    credits_tco2   = soc_before_buffer_tco2 × keep
+    ```
+  </Step>
+  <Step title="Buffer withheld">
+    The portion held in the permanence buffer pool (not eligible for trading):
+
+    ```
+    buffer_withheld_tco2 = soc_before_buffer_tco2 - credits_tco2
+    ```
+  </Step>
+  <Step title="Monetary value at CCTS price band">
+    Credits are valued at India's indicative CCTS price band of ₹600–₹900 per tonne CO₂-eq:
+
+    ```
+    value_low_inr  = credits_tco2 × 600
+    value_high_inr = credits_tco2 × 900
+    ```
+  </Step>
+</Steps>
+
+## Why a Permanence Buffer?
+
+Carbon stored in soil is not unconditionally permanent. If land use changes (e.g. the field is tilled, the crop rotation changes, or the organic inputs stop), a fraction of the humus can be re-mineralised and emitted back to the atmosphere. This **permanence risk** is the main reason carbon registries do not issue 100% of estimated sequestration as tradeable credits.
+
+Registry methodologies handle this by requiring projects to contribute a fraction of estimated credits to a **buffer pool** — a collective insurance reserve. Verra VM0042 and the Gold Standard AWD methodology both specify dynamic buffer requirements based on project risk assessments, typically ranging from **10% to 30%**.
+
+Carbonkrishi uses a default of **20%**, which is conservative but broadly accepted. The `buffer_pct` parameter in the `/api/credits` request accepts any value from 0 to 100, allowing project developers to apply the specific buffer prescribed by their chosen registry.
+
+<Warning>
+  Buffer rates below 10% are unlikely to be accepted by accredited carbon registries. Use 0% only for internal modelling and sensitivity analysis — not for credit issuance documentation.
+</Warning>
+
+## CCTS Price Band
+
+India's **Carbon Credit Trading Scheme (CCTS)** was established under the Energy Conservation (Amendment) Act, 2022, and is jointly administered by the **Ministry of Environment, Forest and Climate Change (MoEFCC)** and the **Bureau of Energy Efficiency (BEE)**. It creates a domestic voluntary-to-compliance carbon market that allows agricultural projects to monetise verified GHG reductions and sequestration.
+
+| Parameter | Value |
+|---|---|
+| Scheme | Carbon Credit Trading Scheme (CCTS) |
+| Legal basis | Energy Conservation (Amendment) Act, 2022 |
+| Administered by | MoEFCC / BEE |
+| Indicative price band | ₹600–₹900 per tonne CO₂-eq |
+| Trading platform | NCDEX (National Commodity & Derivatives Exchange) |
+| Validation pathway | Registered aggregators on NCDEX |
+
+Credits generated by smallholder farmers are typically aggregated by a registered project developer before being listed on NCDEX, as individual farm parcels rarely produce enough volume to meet minimum lot sizes independently.
+
+## Example Calculation
+
+Consider a 1-hectare paddy plot receiving **10,000 kg FYM** and **1,500 kg compost** per season, with the default **20% permanence buffer**:
+
+**FYM SOC:**
+```
+stabilised_C = 10,000 × 0.25 × 0.25 × 0.25 = 156.25 kg C
+fym_soc_tco2 = (156.25 / 1000) × 3.667     = 0.5730 t CO₂-eq
+```
+
+**Compost SOC:**
+```
+stabilised_C     = 1,500 × 0.55 × 0.25 × 0.35 = 72.19 kg C
+compost_soc_tco2 = (72.19 / 1000) × 3.667      = 0.2647 t CO₂-eq
+```
+
+**Combined:**
+
+| Step | Value |
+|---|---|
+| FYM SOC | 0.573 t CO₂-eq |
+| Compost SOC | 0.265 t CO₂-eq |
+| Total before buffer | 0.838 t CO₂-eq |
+| Buffer withheld (20%) | 0.168 t CO₂-eq |
+| **Tradeable credits (80%)** | **0.670 t CO₂-eq** |
+| Value at ₹600/t | ₹402 |
+| Value at ₹900/t | ₹603 |
+
+This translates to approximately **₹402–₹603/ha/season** in credit revenue at the current CCTS indicative price band.
+
+<Tip>
+  To increase credit potential, raise FYM to 10–12 t/ha and add 1.5–2 t/ha compost. At 12,000 kg FYM + 2,000 kg compost, total credits (after 20% buffer) exceed **1 t CO₂-eq/ha/season** — a meaningful threshold for aggregator registration and viable participation in the CCTS market. Higher FYM rates also improve soil water-holding capacity, reducing irrigation demand and further lowering the field's overall carbon footprint.
+</Tip>
+
+---
+
+**See also:** [Carbon Credits feature overview](/features/carbon-credits) · [SOC Credits API reference](/api/credits)

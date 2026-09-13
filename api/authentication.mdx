@@ -1,0 +1,128 @@
+---
+title: "API Access and Authentication for Carbonkrishi"
+sidebarTitle: "Authentication"
+description: "Carbonkrishi requires no API keys or authentication by default. All endpoints are open. Learn how to add access controls for production deployments."
+---
+
+Carbonkrishi's API is open by default — no API keys, tokens, or authentication headers are required to call any endpoint. The server is configured with permissive CORS (`allow_origins=["*"]`) that is suitable for local development and internal tooling but should be hardened before any public-facing deployment.
+
+## Default Configuration
+
+The following middleware is registered in `backend/main.py` at startup:
+
+```python main.py
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+This configuration allows **any browser origin** to call the API, accepts all HTTP methods, and places no restrictions on request headers. It is intentionally permissive for development and local use where friction-free access matters more than access control.
+
+<Warning>
+  Do not expose the API to the public internet without access controls. The ML prediction endpoints (`/api/predict/*`, `/api/blend`) load full inference pipelines per request and can be computationally expensive under concurrent load.
+</Warning>
+
+## Hardening for Production
+
+When deploying Carbonkrishi outside a local or trusted-network environment, apply the following layers of protection:
+
+<Steps>
+  <Step title="Restrict CORS origins">
+    Replace the wildcard `allow_origins=["*"]` with an explicit list of domains that are allowed to make cross-origin requests. Only your own front-end domains should be listed.
+
+    ```python main.py
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "https://app.yourcompany.com",
+            "https://dashboard.yourcompany.com",
+        ],
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type", "X-API-Key"],
+    )
+    ```
+  </Step>
+
+  <Step title="Place the API behind a reverse proxy">
+    Run the FastAPI app behind **nginx** or **Caddy** and enable rate limiting at the proxy layer. This protects against brute-force and denial-of-service traffic before it ever reaches the Python process.
+
+    **nginx example snippet:**
+
+    ```nginx nginx.conf
+    limit_req_zone $binary_remote_addr zone=carbonkrishi:10m rate=30r/m;
+
+    server {
+        listen 443 ssl;
+        server_name api.yourcompany.com;
+
+        location /api/ {
+            limit_req zone=carbonkrishi burst=10 nodelay;
+            proxy_pass http://127.0.0.1:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="Add an API key check via FastAPI dependency injection">
+    FastAPI's dependency injection system makes it straightforward to add a shared-secret gate to any route or router without modifying business logic.
+
+    **Define the dependency:**
+
+    ```python api_key_dep.py
+    from fastapi import Header, HTTPException
+
+    async def verify_api_key(x_api_key: str = Header(...)):
+        if x_api_key != "your-secret-key":
+            raise HTTPException(status_code=401, detail="Invalid API key")
+    ```
+
+    **Apply it to a route:**
+
+    ```python
+    @router.post("/conventional", dependencies=[Depends(verify_api_key)])
+    ```
+
+    **Or protect an entire router at registration time in `main.py`:**
+
+    ```python main.py
+    from .core.auth import verify_api_key
+
+    app.include_router(
+        predict.router,
+        dependencies=[Depends(verify_api_key)],
+    )
+    ```
+
+    Clients then pass the key in the `X-API-Key` request header:
+
+    ```bash
+    curl -X POST https://api.yourcompany.com/api/predict/conventional \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: your-secret-key" \
+      -d '{"N": 130, "P": 50, "K": 35, "Zn": 20}'
+    ```
+  </Step>
+</Steps>
+
+## Health Check Endpoint
+
+`GET /healthz` is intentionally left unauthenticated. Load balancers, container orchestrators (Kubernetes liveness probes, Railway health checks), and uptime monitors all require an open endpoint they can poll without credentials.
+
+```bash
+curl https://carbonkrishi.onrender.com/healthz
+```
+
+```json
+{"status": "ok"}
+```
+
+This endpoint does **not** exercise the ML pipeline — it returns immediately and can be polled at any frequency without impacting prediction performance.
+
+<Note>
+  Render's free-tier deployment suspends the container after roughly 15 minutes of inactivity. The first request after suspension — including a health-check ping — may take **30–60 seconds** to respond while the container cold-starts. Paid Render plans and always-on environments do not have this limitation.
+</Note>

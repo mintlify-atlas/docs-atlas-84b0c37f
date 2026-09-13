@@ -1,0 +1,191 @@
+---
+title: "GET /api/meta — API Metadata, Ranges, and Configuration"
+sidebarTitle: "Meta"
+description: "GET /api/meta — retrieve input validation ranges, Indian market cost rates, per-kg LCA impact footprints, citation sources, and organic model availability in one call."
+---
+
+The meta endpoint returns all the static configuration data that frontend applications and API clients need to set up a valid request: recommended input ranges for conventional and organic inputs, fertiliser cost rates in INR, per-kg environmental footprints derived from OpenLCA, the full citation registry used by inference cards, and whether the organic model stack is loaded and ready. Clients should call this endpoint at startup to avoid hardcoding validation bounds.
+
+## GET /api/meta
+
+No request parameters are required.
+
+### Response Body
+
+<ResponseField name="conv_ranges" type="object">
+  Recommended input ranges for conventional (NPK+Zn) fertiliser inputs. Keys are `"N"`, `"P"`, `"K"`, `"Zn"`. Each value is a two-element array `[min, max]` in **kg/ha**.
+
+  <Expandable title="conv_ranges keys and defaults">
+    <ResponseField name="N" type="[float, float]">
+      `[120, 150]` — Nitrogen rate in kg/ha.
+    </ResponseField>
+    <ResponseField name="P" type="[float, float]">
+      `[40, 60]` — Phosphorus rate in kg/ha.
+    </ResponseField>
+    <ResponseField name="K" type="[float, float]">
+      `[30, 40]` — Potassium rate in kg/ha.
+    </ResponseField>
+    <ResponseField name="Zn" type="[float, float]">
+      `[10, 30]` — Zinc rate in kg/ha.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="org_ranges" type="object">
+  Recommended input ranges for organic amendment inputs. Keys are `"Manure"` and `"Compost"`. Each value is a two-element array `[min, max]` in **kg/ha**.
+
+  <Expandable title="org_ranges keys and defaults">
+    <ResponseField name="Manure" type="[float, float]">
+      `[5000, 15000]` — Farmyard manure rate in kg/ha.
+    </ResponseField>
+    <ResponseField name="Compost" type="[float, float]">
+      `[1000, 2000]` — Compost rate in kg/ha.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="cost_rates" type="object">
+  Indian market input cost rates in **INR per kg**, used by the blend and credits cost calculations.
+
+  <Expandable title="cost_rates keys and values">
+    <ResponseField name="N_synthetic" type="float">
+      `6.5` — Urea-equivalent nitrogen cost in ₹/kg N.
+    </ResponseField>
+    <ResponseField name="P_synthetic" type="float">
+      `28.0` — DAP-equivalent phosphorus cost in ₹/kg P.
+    </ResponseField>
+    <ResponseField name="K_synthetic" type="float">
+      `15.0` — MOP-equivalent potassium cost in ₹/kg K.
+    </ResponseField>
+    <ResponseField name="Zn_synthetic" type="float">
+      `120.0` — Zinc sulphate cost in ₹/kg Zn.
+    </ResponseField>
+    <ResponseField name="Manure" type="float">
+      `0.8` — Farmyard manure cost in ₹/kg.
+    </ResponseField>
+    <ResponseField name="Compost" type="float">
+      `3.5` — Compost cost in ₹/kg.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="impact_data" type="object">
+  Per-kg LCA environmental footprints for N, P, K, and Zn inputs, computed independently in OpenLCA. The object mirrors a four-column table with the following keys:
+
+  <Expandable title="impact_data structure">
+    <ResponseField name="Input" type="string[]">
+      `["Nitrogen (N)", "Phosphorus (P)", "Potassium (K)", "Zinc (Zn)"]`
+    </ResponseField>
+    <ResponseField name="Global Warming (kg CO2-eq)" type="float[]">
+      Per-kg GWP footprints: `[4.964134, 2.906595, 3.016340, 0.777299]`
+    </ResponseField>
+    <ResponseField name="Terrestrial Acidification (kg SO2-eq)" type="float[]">
+      Per-kg acidification footprints: `[0.021555, 0.014359, 0.012404, 0.006452]`
+    </ResponseField>
+    <ResponseField name="Freshwater Eutrophication (kg P-eq)" type="float[]">
+      Per-kg eutrophication footprints: `[0.001469, 0.001000, 0.000679, 0.000460]`
+    </ResponseField>
+    <ResponseField name="Terrestrial Ecotoxicity (CTUe)" type="float[]">
+      Per-kg ecotoxicity footprints: `[5.186745, 4.168297, 2.671163, 612.915864]`. Note the Zn value (612.9) is roughly 120× the others.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="sources" type="object">
+  Full citation registry keyed by short code. Each value is an object with `name` (string) and `url` (string). Used by inference cards when building the `refs` array. Short codes include: `"epa"`, `"ipcc_ar6"`, `"ipcc_2019"`, `"ipcc_rice"`, `"frontiers22"`, `"who_no3"`, `"bis"`, `"gold_awm"`, `"who_air"`, `"usda"`, `"moefcc_ccts"`, `"verra"`, `"icar_inm"`, `"salca"`.
+
+  <Expandable title="example sources entries">
+    <ResponseField name="ipcc_ar6" type="object">
+      `{ "name": "IPCC AR6 Working Group I (2021)", "url": "https://www.ipcc.ch/report/ar6/wg1/" }`
+    </ResponseField>
+    <ResponseField name="moefcc_ccts" type="object">
+      `{ "name": "MoEFCC / BEE - Carbon Credit Trading Scheme (2024)", "url": "https://moef.gov.in/" }`
+    </ResponseField>
+    <ResponseField name="gold_awm" type="object">
+      `{ "name": "Gold Standard - AWD Methane Reduction Methodology", "url": "https://globalgoals.goldstandard.org/..." }`
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="has_organic" type="boolean">
+  `true` if the organic Ridge regression model stack passed its self-test at startup and is ready to serve predictions. `false` if the model files are missing or failed validation.
+
+  When `false`, calls to `POST /api/predict/organic` and `POST /api/blend` will return **503**. Use this flag to conditionally render organic prediction UI in client applications.
+</ResponseField>
+
+### Example Request
+
+```bash
+curl https://carbonkrishi.onrender.com/api/meta
+```
+
+### Example Response (truncated)
+
+```json
+{
+  "conv_ranges": {
+    "N":  [120, 150],
+    "P":  [40,  60],
+    "K":  [30,  40],
+    "Zn": [10,  30]
+  },
+  "org_ranges": {
+    "Manure":  [5000, 15000],
+    "Compost": [1000,  2000]
+  },
+  "cost_rates": {
+    "N_synthetic":  6.5,
+    "P_synthetic":  28.0,
+    "K_synthetic":  15.0,
+    "Zn_synthetic": 120.0,
+    "Manure":       0.8,
+    "Compost":      3.5
+  },
+  "impact_data": {
+    "Input": ["Nitrogen (N)", "Phosphorus (P)", "Potassium (K)", "Zinc (Zn)"],
+    "Global Warming (kg CO2-eq)": [4.964134, 2.906595, 3.016340, 0.777299],
+    "Terrestrial Acidification (kg SO2-eq)": [0.021555, 0.014359, 0.012404, 0.006452],
+    "Freshwater Eutrophication (kg P-eq)": [0.001469, 0.001000, 0.000679, 0.000460],
+    "Terrestrial Ecotoxicity (CTUe)": [5.186745, 4.168297, 2.671163, 612.915864]
+  },
+  "sources": {
+    "epa": {
+      "name": "EPA GHG Equivalencies Calculator (2024)",
+      "url":  "https://www.epa.gov/energy/greenhouse-gas-equivalencies-calculator-calculations-and-references"
+    },
+    "ipcc_ar6": {
+      "name": "IPCC AR6 Working Group I (2021)",
+      "url":  "https://www.ipcc.ch/report/ar6/wg1/"
+    },
+    "moefcc_ccts": {
+      "name": "MoEFCC / BEE - Carbon Credit Trading Scheme (2024)",
+      "url":  "https://moef.gov.in/"
+    }
+  },
+  "has_organic": true
+}
+```
+
+<Tip>
+  Call `GET /api/meta` at application startup to read `conv_ranges` and `org_ranges` for client-side slider and input validation, and to check `has_organic` before rendering any organic prediction or blend UI. This avoids a 503 error cascade if the organic model is unavailable.
+</Tip>
+
+---
+
+## GET /healthz
+
+Returns a simple liveness signal. No request parameters needed.
+
+```bash
+curl https://carbonkrishi.onrender.com/healthz
+```
+
+```json
+{ "status": "ok" }
+```
+
+Returns `200 OK` when the FastAPI process is alive. Use this path for:
+- **Docker health checks** — `HEALTHCHECK CMD curl -f http://localhost:8000/healthz || exit 1`
+- **Render health check path** — set the health check path to `/healthz` in your Render service settings to prevent traffic routing to an unhealthy instance.
+
+This check does **not** verify model readiness. To confirm that the organic model is loaded, use `GET /api/meta` and inspect `has_organic`.

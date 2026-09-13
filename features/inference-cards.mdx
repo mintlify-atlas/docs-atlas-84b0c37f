@@ -1,0 +1,180 @@
+---
+title: "Multilingual Agronomic Inference Cards for Farmers"
+sidebarTitle: "Inference Cards"
+description: "Generate farmer-friendly explanations for LCA and emission values in English, Hindi, Telugu, or Marathi — with cited recommendations and color-coded severity indicators."
+---
+
+Inference cards translate raw numerical outputs from LCA prediction, field emissions, carbon credits, and blend analysis into plain-language agronomic advice. Each card is purpose-built for a specific domain, uses benchmarks from IPCC, WHO, EPA, and ICAR to contextualise the value, and returns a title, an HTML body with concrete recommendations, a hex **severity color** (green / amber / red), and a list of **cited references** for the advice.
+
+Cards are available in four languages and are designed for direct display in mobile apps, advisory dashboards, and farmer-facing kiosk interfaces.
+
+---
+
+## Supported Domains
+
+Nine domains are supported. Each interprets one specific metric from the Carbonkrishi API outputs:
+
+| Domain | What It Interprets | Example Title |
+|---|---|---|
+| `gwp_total` | Total GWP (kg CO₂-eq/ha) vs IPCC rice paddy benchmarks of 3,000–7,000 kg CO₂-eq/ha | 🌍 Global Warming |
+| `ch4` | Methane (kg/ha/season) vs IPCC default range of 200–500 kg/ha for fully-flooded paddies | 🔥 Methane (CH₄) |
+| `n2o` | Nitrous oxide (kg/ha) vs applied-N loss rate; N₂O is 273× more potent than CO₂ | ⚡ Nitrous Oxide (N₂O) |
+| `no3` | Nitrate leaching potential vs WHO (50 mg/L) and BIS IS 10500 (45 mg/L) drinking-water limits | 💦 Nitrate (NO₃⁻) |
+| `nh3` | Ammonia volatilisation and associated PM₂.₅ formation and soil acidification risk | 🌬️ Ammonia (NH₃) |
+| `po4` | Phosphate runoff and algal bloom risk at the 0.1 mg P/L threshold | 💧 Phosphate (PO₄³⁻) |
+| `ecotox` | Soil ecotoxicity (CTUe) dominated by Zinc at 612.9 CTUe/kg vs 2.7–5.2 for N, P, K | ☠️ Ecotoxicity |
+| `credits` | SOC credit potential (t CO₂-eq/ha) vs low/mid/high thresholds; INR value at CCTS rates | 💎 Carbon Credit Potential |
+| `blend_savings` | GWP savings (kg CO₂-eq/ha) and cost delta (INR/ha) from a blend choice vs pure conventional | 🌱 Blend Trade-off |
+
+---
+
+## Supported Languages
+
+<CardGroup cols={2}>
+  <Card title="English" icon="flag-usa" href="/api/inference">
+    Language code: `en`. Default language when `lang` is omitted.
+  </Card>
+  <Card title="Hindi" icon="earth-asia" href="/api/inference">
+    Language code: `hi`. Also used as the fallback for Marathi when explicit Marathi text is unavailable.
+  </Card>
+  <Card title="Telugu" icon="earth-asia" href="/api/inference">
+    Language code: `te`. Full translations provided for all nine domains.
+  </Card>
+  <Card title="Marathi" icon="earth-asia" href="/api/inference">
+    Language code: `mr`. Explicit Marathi text is provided for all nine domains; falls back to Hindi when not available.
+  </Card>
+</CardGroup>
+
+---
+
+## The `ctx` Context Object
+
+Some domains use an optional `ctx` dictionary to personalise recommendations based on your farming setup:
+
+| Domain | `ctx` Key | Type | Effect |
+|---|---|---|---|
+| `gwp_total` | `irrigation` | string | Tailors AWD recommendation to whether the farmer is already using AWD |
+| `gwp_total` | `amendments_used` | boolean | Adjusts urgency messaging if no organic amendments are currently applied |
+| `ch4` | `irrigation` | string | Provides targeted CH₄ advice for AWD, Rainfed, and Fully Flooded modes |
+| `n2o` | `synthetic_n` | float | Flags a high-N alert (>145 kg/ha) and adjusts the N-reduction recommendation |
+| `ecotox` | `zinc` | float | Shows whether the submitted Zn rate is above or below the 20 kg/ha safety threshold |
+| `credits` | — | — | No ctx needed; threshold banding is calculated internally from the value |
+| `blend_savings` | `gwp_saved` | float | GWP reduction compared to pure conventional (kg CO₂-eq/ha) |
+| `blend_savings` | `cost_delta` | float | Cost increase/decrease vs pure conventional (INR/ha; negative = cheaper) |
+| `blend_savings` | `alpha` | float | Organic fraction, used to label the card (e.g., "This 30% organic blend…") |
+
+Omitting `ctx` is always safe — the engine falls back to generic recommendations.
+
+---
+
+## Severity Colors
+
+The `color` field is a hex string that maps to three severity bands:
+
+| Color | Hex | Meaning |
+|---|---|---|
+| Green | `#16a34a` | Below the low threshold — performance is good or credit potential is strong |
+| Amber | `#f59e0b` | Within the normal range — room for improvement exists |
+| Red | `#ef4444` | Above the high threshold — intervention is recommended |
+
+A neutral blue (`#0ea5e9`) is used for informational cards where no severity ranking applies (e.g., `blend_savings` at alpha = 0).
+
+---
+
+## Example: GWP Card in Hindi
+
+```bash
+curl -X POST http://localhost:8000/api/inference/card \
+  -H "Content-Type: application/json" \
+  -d '{
+    "domain": "gwp_total",
+    "value": 4500,
+    "ctx": {"irrigation": "Fully Flooded"},
+    "lang": "hi"
+  }'
+```
+
+**Example response:**
+
+```json
+{
+  "title": "🌍 जलवायु प्रभाव (Global Warming)",
+  "body_html": "आपका <b>4,500 kg CO₂-eq/ha</b> सामान्य 3,000–7,000 kg/ha स्तर के <b>बीच</b> में है — कार से <b>~18,443 किमी</b> चलाने जितना। सुधार की गुंजाइश है: <b>AWD सिंचाई</b> से CH₄ 30–70% कम होता है, और यूरिया को 3 बार में देने से N₂O ~20% कम होता है।",
+  "color": "#f59e0b",
+  "refs": [
+    {
+      "key": "epa",
+      "name": "EPA GHG Equivalencies Calculator (2024)",
+      "url": "https://www.epa.gov/energy/greenhouse-gas-equivalencies-calculator-calculations-and-references"
+    },
+    {
+      "key": "frontiers22",
+      "name": "Frontiers in Sustainable Food Systems (2022)",
+      "url": "https://www.frontiersin.org/journals/sustainable-food-systems/articles/10.3389/fsufs.2022.868479/full"
+    },
+    {
+      "key": "ipcc_ar6",
+      "name": "IPCC AR6 Working Group I (2021)",
+      "url": "https://www.ipcc.ch/report/ar6/wg1/"
+    },
+    {
+      "key": "gold_awm",
+      "name": "Gold Standard - AWD Methane Reduction Methodology",
+      "url": "https://globalgoals.goldstandard.org/standards/437_V1.0_LUF_AGR_Methane-emission-reduction-by-AWM-practice-in-rice-cultivation.pdf"
+    }
+  ]
+}
+```
+
+---
+
+## Response Fields
+
+<ResponseField name="title" type="string">
+  Short title for the card in the requested language, including an emoji indicator.
+</ResponseField>
+
+<ResponseField name="body_html" type="string">
+  Farmer-friendly explanation with actionable recommendations. May contain `<b>` (bold) and `<i>` (italic) inline tags. Safe for direct `innerHTML` injection — content comes from hand-written templates, not user input.
+</ResponseField>
+
+<ResponseField name="color" type="string">
+  Hex color string representing the severity band (e.g., `"#16a34a"`, `"#f59e0b"`, `"#ef4444"`).
+</ResponseField>
+
+<ResponseField name="refs" type="array">
+  List of citation objects supporting the card's recommendations.
+</ResponseField>
+
+<ResponseField name="refs[].key" type="string">
+  Short identifier for the source (e.g., `"ipcc_ar6"`, `"who_no3"`).
+</ResponseField>
+
+<ResponseField name="refs[].name" type="string">
+  Full display name of the source.
+</ResponseField>
+
+<ResponseField name="refs[].url" type="string">
+  URL to the original source document or web page.
+</ResponseField>
+
+---
+
+## Error Responses
+
+| HTTP Status | Cause |
+|---|---|
+| `400 Bad Request` | `domain` is not one of the nine supported values. The detail message reads `"Unknown domain: <value>"`. |
+| `422 Unprocessable Entity` | `lang` is not one of `en`, `hi`, `te`, `mr`, or other schema validation failures. |
+
+---
+
+<Note>
+  `body_html` is **safe for direct `innerHTML` injection** — all content comes from hand-written, multilingual templates inside the Carbonkrishi backend. No user-supplied text is ever interpolated into the HTML output. Standard Content Security Policy rules still apply to your frontend environment.
+</Note>
+
+---
+
+## Full API Reference
+
+See the interactive OpenAPI docs at [/api/inference](/api/inference) for live request testing, the full list of domain identifiers, and schema details.

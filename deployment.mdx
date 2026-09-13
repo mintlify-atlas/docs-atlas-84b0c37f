@@ -1,0 +1,112 @@
+---
+title: "Deploy Carbonkrishi with Docker or Render"
+sidebarTitle: "Deployment"
+description: "Run Carbonkrishi locally with uvicorn, build a Docker container, or deploy directly to Render using the included render.yaml configuration."
+---
+
+Carbonkrishi ships as a self-contained FastAPI application. It can run directly on any machine with Python 3.11, inside Docker, or on Render's free-tier Docker runtime. No external database or message broker is required — the only runtime dependency beyond the Python packages is a set of `.pkl` model files that live in the repository root.
+
+---
+
+## Local Development
+
+Start the development server from the project root. Uvicorn's `--reload` flag watches all Python source files and restarts the process on every save:
+
+```bash
+uvicorn backend.main:app --reload --port 8000
+```
+
+### Hot Reload for the Frontend
+
+Carbonkrishi serves a static HTML/JS frontend from the `frontend/` directory. Set the `DEV` environment variable to `1` to enable [arel](https://github.com/florimondmanca/arel) hot-reload, which pushes a WebSocket message to the browser whenever any file inside `frontend/` changes — no manual page refresh needed:
+
+```bash
+DEV=1 uvicorn backend.main:app --reload --port 8000
+```
+
+<Note>
+  `arel` is not listed in `requirements.txt` because it is only needed during development. Install it separately with `pip install arel` before setting `DEV=1`.
+</Note>
+
+---
+
+## Docker
+
+The repository includes a `Dockerfile` based on `python:3.11-slim`. The image installs Python dependencies in a cached layer, copies the full project, exposes port **7860**, and starts Uvicorn using the `${PORT:-7860}` environment variable — so Render can inject its own `PORT` at runtime without rebuilding the image.
+
+<Steps>
+
+  <Step title="Build the image">
+    Run the following command from the project root (where the `Dockerfile` lives):
+
+    ```bash
+    docker build -t carbonkrishi .
+    ```
+
+    Docker will:
+    1. Pull `python:3.11-slim`
+    2. Install all packages from `requirements.txt` (cached on subsequent builds if `requirements.txt` is unchanged)
+    3. Copy the project source including the `.pkl` model files
+  </Step>
+
+  <Step title="Run the container">
+    Map container port 7860 to host port 8000:
+
+    ```bash
+    docker run -p 8000:7860 carbonkrishi
+    ```
+
+    The API is now accessible at `http://localhost:8000`. Verify with:
+
+    ```bash
+    curl http://localhost:8000/healthz
+    ```
+
+    To override the internal port (e.g. to match a deployment platform's expectation), pass the `PORT` environment variable:
+
+    ```bash
+    docker run -p 8000:3000 -e PORT=3000 carbonkrishi
+    ```
+  </Step>
+
+</Steps>
+
+---
+
+## Render
+
+The repository includes a `render.yaml` that configures a free-tier Docker web service named `carbonkrishi`. Push your repository to GitHub, connect it to Render, and Render will build the Docker image and deploy it automatically on every push.
+
+```yaml
+services:
+  - type: web
+    name: carbonkrishi
+    runtime: docker
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    healthCheckPath: /healthz
+```
+
+Render automatically sets the `PORT` environment variable at container startup. The `CMD` in the `Dockerfile` reads `${PORT:-7860}`, so no further configuration is needed. The health check at `/healthz` is polled by Render to confirm the service is live before routing traffic.
+
+<Note>
+  On Render's free tier, the service spins down after 15 minutes of inactivity. The first request after a cold start may take up to 30 seconds while models are loaded from disk.
+</Note>
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `7860` | The port Uvicorn binds to inside the container. Set automatically by Render; override manually for local Docker runs. |
+| `DEV` | _(unset)_ | Set to `1` to enable arel browser hot-reload for the `frontend/` directory during local development. Requires `pip install arel`. |
+| `CK_MODEL_DIR` | _(repo root)_ | Override the directory path where Carbonkrishi searches for `.pkl` model files. Useful when mounting model files as a Docker volume or secret. |
+
+<Note>
+  The **conventional model** (`.pkl` files for the NPK+Zn Ridge regressor) is **required** at startup — the application will log an error and the predict endpoints will be non-functional if these files are missing.
+
+  The **organic model** is **optional**. If its `.pkl` files are absent, Carbonkrishi starts normally and all conventional, blend, emissions, credits, and inference endpoints continue to work. Requests to `POST /api/predict/organic` return `HTTP 503 Service Unavailable` until the files are present and the server is restarted.
+</Note>

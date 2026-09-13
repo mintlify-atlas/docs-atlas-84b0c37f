@@ -1,47 +1,142 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with Carbonkrishi in 5 Minutes"
+sidebarTitle: "Quickstart"
+description: "Install Carbonkrishi, start the FastAPI server, and make your first LCA prediction request in under five minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+This guide walks you from a fresh clone to a working LCA prediction in minutes. By the end you will have the Carbonkrishi FastAPI server running locally and will have received your first set of environmental impact scores for a conventional rice fertiliser application.
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+
+  <Step title="Clone the repo and install dependencies">
+    Clone the Carbonkrishi repository and install all Python runtime dependencies into your environment:
 
     ```bash
-    npm install your-package
+    git clone https://github.com/jayeshid/carbonkrishi-render.git
+    cd carbonkrishi-render
+    pip install -r requirements.txt
     ```
+
+    The `requirements.txt` installs FastAPI, Uvicorn, Pydantic v2, scikit-learn, joblib, numpy, and pandas.
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+
+  <Step title="Start the FastAPI server">
+    Launch the development server from the project root. Uvicorn hot-reloads the application on every source change:
 
     ```bash
-    your-cli init
+    uvicorn backend.main:app --reload --port 8000
     ```
+
+    During startup, Carbonkrishi's `lifespan` context manager loads all `.pkl` ML model files. You will see log lines similar to:
+
+    ```
+    INFO  carbonkrishi: Loading ML models...
+    INFO  carbonkrishi: Models ready (organic available=True)
+    INFO  uvicorn: Application startup complete.
+    ```
+
+    If the organic model `.pkl` files are absent, `organic available=False` is logged and organic endpoints return `503` — the conventional endpoints continue to work normally.
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+
+  <Step title="Verify the server is healthy">
+    Confirm the server is accepting requests with the health-check endpoint:
 
     ```bash
-    your-cli start
+    curl http://localhost:8000/healthz
+    ```
+
+    Expected response:
+
+    ```json
+    {"status": "ok"}
     ```
   </Step>
+
+  <Step title="Fetch API metadata">
+    Retrieve the valid input ranges, Indian market cost rates, and per-kg impact data used by the engine. This is useful for building form validation on the client side:
+
+    ```bash
+    curl http://localhost:8000/api/meta
+    ```
+
+    The response includes `conv_ranges`, `org_ranges`, `cost_rates`, `impact_data`, `sources`, and a `has_organic` boolean that tells you whether the organic model loaded successfully.
+  </Step>
+
+  <Step title="Predict LCA impacts — conventional fertiliser">
+    Submit a conventional fertiliser application (N=135 kg ha⁻¹, P=50 kg ha⁻¹, K=35 kg ha⁻¹, Zn=20 kg ha⁻¹) to receive the four ReCiPe midpoint impact scores:
+
+    ```bash
+    curl -X POST http://localhost:8000/api/predict/conventional \
+      -H "Content-Type: application/json" \
+      -d '{"N": 135, "P": 50, "K": 35, "Zn": 20}'
+    ```
+
+    Example response:
+
+    ```json
+    {
+      "impacts": {
+        "global_warming": 849.32,
+        "freshwater_eutrophication": 0.24,
+        "terrestrial_acidification": 3.71,
+        "terrestrial_ecotoxicity": 13284.45
+      },
+      "warnings": []
+    }
+    ```
+
+    The `warnings` array is empty when all inputs fall within the recommended agronomic ranges defined in `CONV_RANGES` (N: 120–150, P: 40–60, K: 30–40, Zn: 10–30 kg ha⁻¹). Out-of-range inputs still return a prediction but include a `ValidationItem` per flagged nutrient.
+  </Step>
+
+  <Step title="Try the organic predictor">
+    Submit an organic amendment application (10 000 kg ha⁻¹ FYM, 1 500 kg ha⁻¹ compost):
+
+    ```bash
+    curl -X POST http://localhost:8000/api/predict/organic \
+      -H "Content-Type: application/json" \
+      -d '{"manure": 10000, "compost": 1500}'
+    ```
+
+    Example response when the organic model is loaded:
+
+    ```json
+    {
+      "impacts": {
+        "global_warming": 312.18,
+        "freshwater_eutrophication": 0.09,
+        "terrestrial_acidification": 1.44,
+        "terrestrial_ecotoxicity": 4821.06
+      },
+      "warnings": []
+    }
+    ```
+
+    <Note>
+      If the organic model `.pkl` files are missing from the repository, this endpoint returns `HTTP 503 Service Unavailable`. The conventional predictor is unaffected. Check `GET /api/meta` — the `has_organic` field will be `false` when the organic model is unavailable.
+    </Note>
+  </Step>
+
 </Steps>
 
 <Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
-
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
+  The full interactive OpenAPI documentation — including request/response schemas for every endpoint — is available at **[http://localhost:8000/docs](http://localhost:8000/docs)** once the server is running. You can try every endpoint directly from the browser without writing any `curl` commands.
 </Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api/overview"
+  >
+    Explore all endpoints — blend optimisation, field emissions, carbon credits, and multilingual inference cards.
+  </Card>
+  <Card
+    title="Core Features"
+    icon="seedling"
+    href="/features/lca-prediction"
+  >
+    Understand how the Ridge regression models work and how LCA impact scores are computed from input nutrient loads.
+  </Card>
+</CardGroup>

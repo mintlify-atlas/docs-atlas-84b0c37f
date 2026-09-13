@@ -1,0 +1,121 @@
+---
+title: "POST /api/emissions/field — Field GHG Emission Estimation"
+sidebarTitle: "Emissions"
+description: "POST /api/emissions/field — estimate per-hectare per-season emissions of CH₄, N₂O, NO₃, NH₃, and PO₄ using IPCC and SALCA factors for irrigation mode and amendments."
+---
+
+The field emissions endpoint is purely deterministic — no machine learning. It applies IPCC 2019 and SALCA emission factors to compute five pollutants per hectare per season based on the synthetic N and P application rates, the irrigation management mode, and up to two organic amendments. Results reflect a single rice growing season on one hectare.
+
+## POST /api/emissions/field
+
+### Request Body
+
+<ParamField body="synthetic_n" type="float" required>
+  Synthetic nitrogen application rate in **kg/ha**. Used to compute N₂O (via IPCC EF1 = 1% of applied N), NO₃ leaching (via SALCA leaching fraction), and NH₃ volatilisation.
+</ParamField>
+
+<ParamField body="synthetic_p" type="float" required>
+  Synthetic phosphorus application rate in **kg/ha**. Used to compute PO₄ surface-runoff potential via SALCA factors.
+</ParamField>
+
+<ParamField body="irrigation" type="string" required>
+  Irrigation management mode. Must be exactly one of:
+
+  | Value | Notes |
+  |-------|-------|
+  | `"Fully Flooded"` | Continuous anaerobic conditions; highest CH₄ emissions per IPCC rice guidelines. |
+  | `"Alternate Wetting and Drying"` | Periodic drainage reduces CH₄ by 30–70% but slightly increases N₂O. |
+  | `"Rainfed"` | Aerobic or intermittent waterlogging; lowest CH₄, variable N₂O depending on rainfall. |
+</ParamField>
+
+<ParamField body="amendment_1" type="string" default="None">
+  First optional organic amendment. One of: `"None"`, `"Farm Yard Manure"`, `"Compost"`. Amendments affect the IPCC CH₄ scaling factor (SF_o) — fresh organic material under flooded conditions increases methanogenesis.
+</ParamField>
+
+<ParamField body="amendment_2" type="string" default="None">
+  Second optional organic amendment. One of: `"None"`, `"Farm Yard Manure"`, `"Compost"`. Allows modelling of combined amendment scenarios (e.g. FYM + Compost together).
+</ParamField>
+
+### Response Body
+
+<ResponseField name="CH4" type="float">
+  Methane emissions in **kg CH₄/ha/season**. Driven primarily by irrigation mode and organic amendment type. Fully flooded paddies with fresh FYM produce the highest values.
+</ResponseField>
+
+<ResponseField name="N2O" type="float">
+  Nitrous oxide emissions in **kg N₂O/ha/season**. Computed from IPCC EF1 (1% of applied synthetic N). AWD slightly elevates N₂O relative to continuous flooding.
+</ResponseField>
+
+<ResponseField name="NO3" type="float">
+  Nitrate leaching potential in **kg NO₃/ha/season**. Estimated via SALCA leaching fraction applied to synthetic N input. High values increase risk of groundwater contamination above WHO (50 mg/L) and BIS IS 10500 (45 mg/L) limits.
+</ResponseField>
+
+<ResponseField name="NH3" type="float">
+  Ammonia volatilisation in **kg NH₃/ha/season**. Surface-applied urea in warm, alkaline conditions has high volatilisation. Neem-coated urea and soil incorporation reduce this by 10–15%.
+</ResponseField>
+
+<ResponseField name="PO4" type="float">
+  Phosphate surface runoff potential in **kg PO₄/ha/season**. Derived from SALCA factors applied to synthetic P input. Concentrations above 0.1 mg P/L in receiving water bodies trigger algal blooms.
+</ResponseField>
+
+### Example Requests
+
+The three examples below use the same N and P rates to isolate the effect of irrigation mode on CH₄.
+
+**Fully Flooded:**
+
+```bash
+curl -X POST https://carbonkrishi.onrender.com/api/emissions/field \
+  -H "Content-Type: application/json" \
+  -d '{
+    "synthetic_n": 135,
+    "synthetic_p": 50,
+    "irrigation": "Fully Flooded",
+    "amendment_1": "Farm Yard Manure",
+    "amendment_2": "None"
+  }'
+```
+
+**Alternate Wetting and Drying (AWD):**
+
+```bash
+curl -X POST https://carbonkrishi.onrender.com/api/emissions/field \
+  -H "Content-Type: application/json" \
+  -d '{
+    "synthetic_n": 135,
+    "synthetic_p": 50,
+    "irrigation": "Alternate Wetting and Drying",
+    "amendment_1": "Farm Yard Manure",
+    "amendment_2": "None"
+  }'
+```
+
+**Rainfed:**
+
+```bash
+curl -X POST https://carbonkrishi.onrender.com/api/emissions/field \
+  -H "Content-Type: application/json" \
+  -d '{
+    "synthetic_n": 135,
+    "synthetic_p": 50,
+    "irrigation": "Rainfed",
+    "amendment_1": "Farm Yard Manure",
+    "amendment_2": "None"
+  }'
+```
+
+### Example Response (Fully Flooded with FYM)
+
+```json
+{
+  "CH4": 412.50,
+  "N2O": 1.350,
+  "NO3": 40.23,
+  "NH3": 14.72,
+  "PO4": 0.138
+}
+```
+
+<Tip>
+  AWD dramatically reduces CH₄ while slightly increasing N₂O — the net GWP impact (CH₄ × 27.9 GWP100 vs N₂O × 273 GWP100) is still highly favourable. Switching from fully flooded to AWD typically reduces total field GWP by 20–40% even accounting for the N₂O offset.
+</Tip>

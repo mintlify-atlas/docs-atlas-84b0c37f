@@ -1,0 +1,153 @@
+---
+title: "Carbonkrishi REST API Reference Overview"
+sidebarTitle: "Overview"
+description: "The Carbonkrishi API exposes 8 REST endpoints for LCA prediction, field emissions, fertiliser blending, carbon credits, inference cards, and metadata. All endpoints return JSON."
+---
+
+Carbonkrishi exposes a JSON REST API built with FastAPI. All requests use `Content-Type: application/json` and all responses are JSON. The interactive OpenAPI docs are available at `/docs` and the ReDoc interface at `/redoc`.
+
+## Base URL
+
+| Environment        | URL                                    |
+|--------------------|----------------------------------------|
+| Local development  | `http://localhost:8000`                |
+| Render deployment  | `https://carbonkrishi.onrender.com`    |
+
+<Note>
+  The Render deployment runs on the free tier and may spin down after a period of inactivity. The first request after a cold start can take 30–60 seconds to respond.
+</Note>
+
+## Endpoint Summary
+
+| Method | Path                          | Description                                                       |
+|--------|-------------------------------|-------------------------------------------------------------------|
+| POST   | `/api/predict/conventional`   | Predict LCA impacts for conventional NPK+Zn fertiliser            |
+| POST   | `/api/predict/organic`        | Predict LCA impacts for organic FYM+Compost fertiliser            |
+| POST   | `/api/blend`                  | Blend conventional and organic impacts with cost comparison        |
+| POST   | `/api/emissions/field`        | Estimate field-level GHG and pollutant emissions                  |
+| POST   | `/api/credits/soc`            | Calculate soil organic carbon credit potential                    |
+| POST   | `/api/inference/card`         | Generate a multilingual agronomic inference card                  |
+| GET    | `/api/meta`                   | Get input ranges, cost rates, and organic availability            |
+| GET    | `/healthz`                    | Health check                                                      |
+
+## Endpoint Groups
+
+<CardGroup cols={3}>
+  <Card
+    title="Prediction"
+    icon="flask"
+    href="/api/predict"
+  >
+    `/api/predict/conventional` and `/api/predict/organic` — run ML-backed LCA predictions for NPK+Zn or FYM+Compost fertiliser inputs.
+  </Card>
+  <Card
+    title="Blending"
+    icon="shuffle"
+    href="/api/blend"
+  >
+    `/api/blend` — combine conventional and organic fertiliser scenarios and compare blended LCA impacts alongside INR cost estimates.
+  </Card>
+  <Card
+    title="Emissions"
+    icon="wind"
+    href="/api/emissions"
+  >
+    `/api/emissions/field` — estimate CH₄, N₂O, NO₃, NH₃, and PO₄ emissions at field level based on irrigation regime and amendments.
+  </Card>
+  <Card
+    title="Credits"
+    icon="leaf"
+    href="/api/credits"
+  >
+    `/api/credits/soc` — calculate soil organic carbon sequestration and tradeable carbon credit potential (tCO₂) from organic inputs.
+  </Card>
+  <Card
+    title="Inference"
+    icon="message-lines"
+    href="/api/inference"
+  >
+    `/api/inference/card` — generate context-aware agronomic guidance cards in English, Hindi, Telugu, or Marathi.
+  </Card>
+  <Card
+    title="Metadata"
+    icon="circle-info"
+    href="/api/meta"
+  >
+    `/api/meta` — retrieve valid input ranges, Indian market cost rates, per-kg impact footprints, and organic model availability.
+  </Card>
+</CardGroup>
+
+## Shared Data Types
+
+### Impacts Object
+
+Returned by all prediction, blend, and emissions endpoints as the core result payload.
+
+| Field                        | Type    | Unit       | Description                            |
+|------------------------------|---------|------------|----------------------------------------|
+| `global_warming`             | `float` | kg CO₂-eq  | Global warming potential               |
+| `freshwater_eutrophication`  | `float` | kg P-eq    | Freshwater eutrophication potential    |
+| `terrestrial_acidification`  | `float` | kg SO₂-eq  | Terrestrial acidification potential    |
+| `terrestrial_ecotoxicity`    | `float` | CTUe       | Terrestrial ecotoxicity potential      |
+
+**Example:**
+
+```json
+{
+  "global_warming": 812.4,
+  "freshwater_eutrophication": 0.184,
+  "terrestrial_acidification": 3.12,
+  "terrestrial_ecotoxicity": 9204.7
+}
+```
+
+### ValidationItem
+
+Returned inside the `warnings` array when a request input falls outside the recommended agronomic range.
+
+| Field      | Type     | Description                              |
+|------------|----------|------------------------------------------|
+| `nutrient` | `string` | Name of the nutrient or input parameter  |
+| `value`    | `float`  | The value that was supplied              |
+| `low`      | `float`  | Recommended lower bound                  |
+| `high`     | `float`  | Recommended upper bound                  |
+| `unit`     | `string` | Unit of the input (e.g. `kg/ha`)         |
+
+**Example:**
+
+```json
+{
+  "nutrient": "N",
+  "value": 200.0,
+  "low": 120.0,
+  "high": 150.0,
+  "unit": "kg/ha"
+}
+```
+
+<Tip>
+  Warnings do not block the response — predictions are still returned. Use the `warnings` array to surface guidance to end users when inputs exceed typical agronomic ranges.
+</Tip>
+
+## Error Codes
+
+| HTTP Status | When it occurs                                        |
+|-------------|-------------------------------------------------------|
+| `400`       | Unknown or unsupported `domain` in an inference card request |
+| `500`       | ML prediction pipeline failed (model error)           |
+| `503`       | Organic model unavailable (artifact not loaded at startup) |
+
+All error responses follow FastAPI's standard detail envelope:
+
+```json
+{
+  "detail": "Unknown domain: soil_ph"
+}
+```
+
+## Interactive Docs
+
+FastAPI automatically generates and serves two interactive API explorers:
+
+- **`GET /docs`** — Swagger UI. Lets you inspect request/response schemas and send live requests directly from the browser.
+- **`GET /redoc`** — ReDoc interface. A clean, read-only reference layout well suited for sharing with stakeholders.

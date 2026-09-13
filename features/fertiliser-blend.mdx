@@ -1,0 +1,184 @@
+---
+title: "Optimise Conventional and Organic Fertiliser Blends"
+sidebarTitle: "Fertiliser Blend"
+description: "Linearly interpolate between conventional NPK+Zn and organic FYM+Compost regimes, compare LCA impacts side-by-side, and calculate per-hectare INR costs for each mix."
+---
+
+The blend endpoint runs **both** the conventional and organic LCA predictors in a single request, then linearly interpolates between their outputs using a single `alpha` parameter. The response returns LCA impacts and INR input costs for all three scenarios — pure conventional, pure organic, and the blended mix — enabling direct cost-versus-emissions trade-off analysis.
+
+---
+
+## The Alpha Parameter
+
+`alpha` is a number between `0.0` and `1.0` that controls the organic share of the blend:
+
+| alpha | Meaning |
+|---|---|
+| `0.0` | 100% conventional — only NPK+Zn impacts and costs |
+| `0.5` | 50/50 mix of conventional and organic |
+| `1.0` | 100% organic — only FYM+Compost impacts and costs |
+
+The blend formula is applied independently to each of the four LCA impact categories:
+
+```text
+blend_impact = (1 - alpha) × conventional_impact + alpha × organic_impact
+```
+
+The blended cost is calculated similarly from the per-input INR rates.
+
+---
+
+## Input Cost Rates
+
+Costs are computed at Indian market rates (INR per kg of input applied):
+
+| Input | Rate (₹/kg) |
+|---|---|
+| N synthetic | ₹6.50 |
+| P synthetic | ₹28.00 |
+| K synthetic | ₹15.00 |
+| Zn synthetic | ₹120.00 |
+| Farm Yard Manure | ₹0.80 |
+| Compost | ₹3.50 |
+
+The three cost fields in the response represent:
+- `cost_conventional_inr` — full NPK+Zn cost at alpha = 0
+- `cost_organic_inr` — full FYM+Compost cost at alpha = 1
+- `cost_blend_inr` — weighted cost at the requested alpha
+
+---
+
+## Example: 30% Organic Blend
+
+```bash
+curl -X POST http://localhost:8000/api/blend \
+  -H "Content-Type: application/json" \
+  -d '{
+    "N": 135,
+    "P": 50,
+    "K": 35,
+    "Zn": 20,
+    "manure": 10000,
+    "compost": 1500,
+    "alpha": 0.3
+  }'
+```
+
+**Example response:**
+
+```json
+{
+  "conventional": {
+    "global_warming": 1052.47,
+    "freshwater_eutrophication": 0.2318,
+    "terrestrial_acidification": 3.841,
+    "terrestrial_ecotoxicity": 13945.2
+  },
+  "organic": {
+    "global_warming": 318.92,
+    "freshwater_eutrophication": 0.0741,
+    "terrestrial_acidification": 1.204,
+    "terrestrial_ecotoxicity": 2108.6
+  },
+  "blend": {
+    "global_warming": 832.00,
+    "freshwater_eutrophication": 0.1843,
+    "terrestrial_acidification": 3.050,
+    "terrestrial_ecotoxicity": 10394.2
+  },
+  "cost_conventional_inr": 5267.50,
+  "cost_organic_inr": 13250.00,
+  "cost_blend_inr": 7644.25
+}
+```
+
+---
+
+## Request Schema
+
+<ParamField body="N" type="float" required>
+  Nitrogen application rate in kg/ha. Must be ≥ 0.
+</ParamField>
+
+<ParamField body="P" type="float" required>
+  Phosphorus application rate in kg/ha. Must be ≥ 0.
+</ParamField>
+
+<ParamField body="K" type="float" required>
+  Potassium application rate in kg/ha. Must be ≥ 0.
+</ParamField>
+
+<ParamField body="Zn" type="float" required>
+  Zinc application rate in kg/ha. Must be ≥ 0.
+</ParamField>
+
+<ParamField body="manure" type="float" required>
+  Farm Yard Manure application rate in kg/ha. Must be ≥ 0.
+</ParamField>
+
+<ParamField body="compost" type="float" required>
+  Compost application rate in kg/ha. Must be ≥ 0.
+</ParamField>
+
+<ParamField body="alpha" type="float" required>
+  Organic fraction of the blend. Must be between `0.0` and `1.0` inclusive.
+</ParamField>
+
+---
+
+## Response Fields
+
+<ResponseField name="conventional" type="Impacts object">
+  LCA impacts for the fully conventional (alpha = 0) scenario.
+</ResponseField>
+
+<ResponseField name="organic" type="Impacts object">
+  LCA impacts for the fully organic (alpha = 1) scenario.
+</ResponseField>
+
+<ResponseField name="blend" type="Impacts object">
+  LCA impacts for the requested alpha blend.
+</ResponseField>
+
+<ResponseField name="cost_conventional_inr" type="float">
+  Total per-hectare input cost in INR for the conventional scenario.
+</ResponseField>
+
+<ResponseField name="cost_organic_inr" type="float">
+  Total per-hectare input cost in INR for the organic scenario.
+</ResponseField>
+
+<ResponseField name="cost_blend_inr" type="float">
+  Total per-hectare input cost in INR for the blended scenario at the requested alpha.
+</ResponseField>
+
+Each `Impacts` object contains:
+
+| Field | Unit |
+|---|---|
+| `global_warming` | kg CO₂-eq |
+| `freshwater_eutrophication` | kg P-eq |
+| `terrestrial_acidification` | kg SO₂-eq |
+| `terrestrial_ecotoxicity` | CTUe |
+
+---
+
+## Error Responses
+
+| HTTP Status | Cause |
+|---|---|
+| `503 Service Unavailable` | The organic model failed its startup self-test and is unavailable. The blend endpoint requires both models. |
+| `500 Internal Server Error` | A prediction call failed for an unexpected reason. |
+| `422 Unprocessable Entity` | Request body failed validation (e.g., `alpha` outside 0–1). |
+
+---
+
+<Tip>
+  Use the blend endpoint to find the **crossover point** where emissions savings justify the cost difference. Run the endpoint at alpha = 0.1, 0.2, 0.3, … and plot `cost_blend_inr` against `blend.global_warming` to identify your Pareto-optimal mix. The cost gap between conventional and organic can often be recovered through CCTS soil-carbon credits — see [Carbon Credits](/features/carbon-credits).
+</Tip>
+
+---
+
+## Full API Reference
+
+See the interactive OpenAPI docs at [/api/blend](/api/blend) for full schema details and live testing. For SOC credit potential of the organic inputs in your blend, see [Carbon Credits](/features/carbon-credits).

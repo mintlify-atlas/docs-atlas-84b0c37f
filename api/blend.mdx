@@ -1,0 +1,168 @@
+---
+title: "POST /api/blend — Fertiliser Regime Blend and Cost Comparison"
+sidebarTitle: "Blend"
+description: "POST /api/blend — interpolate between conventional and organic fertiliser LCA impacts using an alpha weighting parameter and return per-hectare INR costs for all three scenarios."
+---
+
+The blend endpoint runs both the conventional and organic predictors in a single call and returns the linearly interpolated LCA impacts plus per-hectare INR cost for three scenarios: fully conventional, fully organic, and a user-defined blend. Use the `alpha` parameter to explore the impact-cost trade-off — for example, a 30% organic blend (alpha=0.3) replaces 30% of the synthetic impact footprint with the organic footprint and weights the cost accordingly.
+
+## POST /api/blend
+
+### Request Body
+
+<ParamField body="N" type="float" required>
+  Conventional nitrogen rate in kg/ha. Passed directly to the conventional predictor. Recommended: **120–150**.
+</ParamField>
+
+<ParamField body="P" type="float" required>
+  Conventional phosphorus rate in kg/ha. Recommended: **40–60**.
+</ParamField>
+
+<ParamField body="K" type="float" required>
+  Conventional potassium rate in kg/ha. Recommended: **30–40**.
+</ParamField>
+
+<ParamField body="Zn" type="float" required>
+  Conventional zinc rate in kg/ha. Recommended: **10–30**. High values significantly raise ecotoxicity.
+</ParamField>
+
+<ParamField body="manure" type="float" required>
+  Organic farmyard manure rate in kg/ha. Passed directly to the organic predictor. Recommended: **5,000–15,000**.
+</ParamField>
+
+<ParamField body="compost" type="float" required>
+  Organic compost rate in kg/ha. Recommended: **1,000–2,000**.
+</ParamField>
+
+<ParamField body="alpha" type="float" required>
+  Blend fraction, constrained to **0.0–1.0**.
+  - `0.0` — fully conventional: impacts and cost equal the conventional scenario.
+  - `1.0` — fully organic: impacts and cost equal the organic scenario.
+  - `0.3` — 30% organic blend: each impact = `(1 - 0.3) × conventional + 0.3 × organic`.
+
+  The blended cost is computed as a weighted combination of the two input cost functions.
+</ParamField>
+
+### Response Body
+
+<ResponseField name="conventional" type="object" required>
+  LCA impacts for the conventional scenario (alpha = 0).
+
+  <Expandable title="conventional impact fields">
+    <ResponseField name="global_warming" type="float">
+      Global warming potential in **kg CO₂-eq/ha**.
+    </ResponseField>
+    <ResponseField name="freshwater_eutrophication" type="float">
+      Freshwater eutrophication potential in **kg P-eq/ha**.
+    </ResponseField>
+    <ResponseField name="terrestrial_acidification" type="float">
+      Terrestrial acidification potential in **kg SO₂-eq/ha**.
+    </ResponseField>
+    <ResponseField name="terrestrial_ecotoxicity" type="float">
+      Terrestrial ecotoxicity potential in **CTUe/ha**.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="organic" type="object" required>
+  LCA impacts for the organic scenario (alpha = 1).
+
+  <Expandable title="organic impact fields">
+    <ResponseField name="global_warming" type="float">
+      Global warming potential in **kg CO₂-eq/ha**.
+    </ResponseField>
+    <ResponseField name="freshwater_eutrophication" type="float">
+      Freshwater eutrophication potential in **kg P-eq/ha**.
+    </ResponseField>
+    <ResponseField name="terrestrial_acidification" type="float">
+      Terrestrial acidification potential in **kg SO₂-eq/ha**.
+    </ResponseField>
+    <ResponseField name="terrestrial_ecotoxicity" type="float">
+      Terrestrial ecotoxicity potential in **CTUe/ha**.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="blend" type="object" required>
+  Linearly interpolated impacts: `blend[i] = (1 - alpha) × conventional[i] + alpha × organic[i]`.
+
+  <Expandable title="blend impact fields">
+    <ResponseField name="global_warming" type="float">
+      Blended global warming potential in **kg CO₂-eq/ha**.
+    </ResponseField>
+    <ResponseField name="freshwater_eutrophication" type="float">
+      Blended freshwater eutrophication potential in **kg P-eq/ha**.
+    </ResponseField>
+    <ResponseField name="terrestrial_acidification" type="float">
+      Blended terrestrial acidification potential in **kg SO₂-eq/ha**.
+    </ResponseField>
+    <ResponseField name="terrestrial_ecotoxicity" type="float">
+      Blended terrestrial ecotoxicity potential in **CTUe/ha**.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="cost_conventional_inr" type="float">
+  Per-hectare input cost for the conventional scenario in **INR**, computed using Indian market rates: N = ₹6.5/kg, P = ₹28.0/kg, K = ₹15.0/kg, Zn = ₹120.0/kg.
+</ResponseField>
+
+<ResponseField name="cost_organic_inr" type="float">
+  Per-hectare input cost for the organic scenario in **INR**: Manure = ₹0.8/kg, Compost = ₹3.5/kg.
+</ResponseField>
+
+<ResponseField name="cost_blend_inr" type="float">
+  Weighted per-hectare cost for the blended scenario in **INR**, proportioned by alpha across both input streams.
+</ResponseField>
+
+### Example Request
+
+At `alpha=0.3` — a 30% organic, 70% conventional blend:
+
+```bash
+curl -X POST https://carbonkrishi.onrender.com/api/blend \
+  -H "Content-Type: application/json" \
+  -d '{
+    "N": 135,
+    "P": 50,
+    "K": 35,
+    "Zn": 15,
+    "manure": 10000,
+    "compost": 1500,
+    "alpha": 0.3
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "conventional": {
+    "global_warming": 1074.32,
+    "freshwater_eutrophication": 0.2031,
+    "terrestrial_acidification": 2.9841,
+    "terrestrial_ecotoxicity": 9874.52
+  },
+  "organic": {
+    "global_warming": 312.48,
+    "freshwater_eutrophication": 0.0721,
+    "terrestrial_acidification": 0.8934,
+    "terrestrial_ecotoxicity": 1204.67
+  },
+  "blend": {
+    "global_warming": 845.77,
+    "freshwater_eutrophication": 0.1638,
+    "terrestrial_acidification": 2.1563,
+    "terrestrial_ecotoxicity": 7273.57
+  },
+  "cost_conventional_inr": 7612.50,
+  "cost_organic_inr": 13250.00,
+  "cost_blend_inr": 9267.50
+}
+```
+
+### Error Responses
+
+| Status | Detail |
+|--------|--------|
+| `503 Service Unavailable` | Organic model stack not loaded — check `has_organic` in `GET /api/meta` before calling this endpoint. |
+| `500 Internal Server Error` | One or both predictors threw a `PredictionError` — check service logs. |

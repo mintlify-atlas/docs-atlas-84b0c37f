@@ -1,0 +1,231 @@
+---
+title: "POST /api/predict — Fertiliser LCA Impact Prediction"
+sidebarTitle: "Predict"
+description: "POST /api/predict/conventional and /api/predict/organic — predict four LCA impact categories from NPK+Zn or FYM+Compost fertiliser input rates."
+---
+
+The predict endpoints run ML inference on Ridge regression models to estimate four LCA impact categories for a single hectare of rice paddy. The conventional endpoint accepts nitrogen, phosphorus, potassium, and zinc rates; the organic endpoint accepts farmyard manure and compost rates. Both endpoints return an `impacts` object and a `warnings` array for any inputs that fall outside recommended ranges.
+
+<Tabs>
+  <Tab title="Conventional">
+
+    ## POST /api/predict/conventional
+
+    Predict the four LCA impact categories for a conventional NPK+Zn fertiliser regime. The Ridge regression model was trained on OpenLCA-derived per-kg impact footprints for N, P, K, and Zn inputs on irrigated rice paddy.
+
+    ### Request Body
+
+    <ParamField body="N" type="float" required>
+      Nitrogen application rate in kg/ha. Recommended range: **120–150 kg/ha**. Values outside this range trigger a warning in the response but are still processed.
+    </ParamField>
+
+    <ParamField body="P" type="float" required>
+      Phosphorus application rate in kg/ha. Recommended range: **40–60 kg/ha**.
+    </ParamField>
+
+    <ParamField body="K" type="float" required>
+      Potassium application rate in kg/ha. Recommended range: **30–40 kg/ha**.
+    </ParamField>
+
+    <ParamField body="Zn" type="float" required>
+      Zinc application rate in kg/ha. Recommended range: **10–30 kg/ha**. Note: Zn carries a terrestrial ecotoxicity factor of 612.9 CTUe/kg — roughly 120× that of N, P, or K — so high Zn rates dominate the ecotoxicity impact.
+    </ParamField>
+
+    ### Response Body
+
+    <ResponseField name="impacts" type="object" required>
+      The four predicted LCA impact categories for one hectare of rice paddy.
+
+      <Expandable title="impacts fields">
+        <ResponseField name="global_warming" type="float">
+          Global warming potential in **kg CO₂-eq/ha**.
+        </ResponseField>
+        <ResponseField name="freshwater_eutrophication" type="float">
+          Freshwater eutrophication potential in **kg P-eq/ha**.
+        </ResponseField>
+        <ResponseField name="terrestrial_acidification" type="float">
+          Terrestrial acidification potential in **kg SO₂-eq/ha**.
+        </ResponseField>
+        <ResponseField name="terrestrial_ecotoxicity" type="float">
+          Terrestrial ecotoxicity potential in **CTUe/ha** (Comparative Toxic Units, ecotoxicity).
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+
+    <ResponseField name="warnings" type="ValidationItem[]">
+      Array of `ValidationItem` objects. Empty when all inputs are within recommended ranges. Each item describes which nutrient is out of range and by how much.
+
+      <Expandable title="ValidationItem fields">
+        <ResponseField name="nutrient" type="string">
+          The nutrient name, e.g. `"N"`, `"P"`, `"K"`, `"Zn"`.
+        </ResponseField>
+        <ResponseField name="value" type="float">
+          The submitted input value.
+        </ResponseField>
+        <ResponseField name="low" type="float">
+          The lower bound of the recommended range.
+        </ResponseField>
+        <ResponseField name="high" type="float">
+          The upper bound of the recommended range.
+        </ResponseField>
+        <ResponseField name="unit" type="string">
+          Unit string, e.g. `"kg/ha"`.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+
+    ### Example Request
+
+    ```bash
+    curl -X POST https://carbonkrishi.onrender.com/api/predict/conventional \
+      -H "Content-Type: application/json" \
+      -d '{
+        "N": 135,
+        "P": 50,
+        "K": 35,
+        "Zn": 15
+      }'
+    ```
+
+    ### Example Response
+
+    ```json
+    {
+      "impacts": {
+        "global_warming": 1074.32,
+        "freshwater_eutrophication": 0.2031,
+        "terrestrial_acidification": 2.9841,
+        "terrestrial_ecotoxicity": 9874.52
+      },
+      "warnings": []
+    }
+    ```
+
+    ### Example Response — with Warnings
+
+    When `Zn` is above the recommended 30 kg/ha ceiling:
+
+    ```json
+    {
+      "impacts": {
+        "global_warming": 1151.48,
+        "freshwater_eutrophication": 0.2194,
+        "terrestrial_acidification": 3.1023,
+        "terrestrial_ecotoxicity": 21485.04
+      },
+      "warnings": [
+        {
+          "nutrient": "Zn",
+          "value": 45.0,
+          "low": 10.0,
+          "high": 30.0,
+          "unit": "kg/ha"
+        }
+      ]
+    }
+    ```
+
+    ### Error Responses
+
+    | Status | Detail |
+    |--------|--------|
+    | `500 Internal Server Error` | ML inference failed — model may not be loaded. Check `/healthz` and service logs. |
+
+  </Tab>
+  <Tab title="Organic">
+
+    ## POST /api/predict/organic
+
+    Predict the four LCA impact categories for an organic FYM+Compost fertiliser regime. A separate Ridge regression model is trained on organic amendment impact footprints.
+
+    <Note>
+      The organic model is loaded separately from the conventional model. If it failed its self-test at startup, this endpoint returns **503**. Check `has_organic` in `GET /api/meta` before rendering organic prediction UI.
+    </Note>
+
+    ### Request Body
+
+    <ParamField body="manure" type="float" required>
+      Farmyard manure (FYM) application rate in kg/ha. Recommended range: **5,000–15,000 kg/ha**. Very high FYM rates (above 15,000 kg/ha) can drive CH₄ emissions under flooded conditions.
+    </ParamField>
+
+    <ParamField body="compost" type="float" required>
+      Compost application rate in kg/ha. Recommended range: **1,000–2,000 kg/ha**.
+    </ParamField>
+
+    ### Response Body
+
+    <ResponseField name="impacts" type="object" required>
+      The four predicted LCA impact categories for one hectare of rice paddy under an organic regime.
+
+      <Expandable title="impacts fields">
+        <ResponseField name="global_warming" type="float">
+          Global warming potential in **kg CO₂-eq/ha**.
+        </ResponseField>
+        <ResponseField name="freshwater_eutrophication" type="float">
+          Freshwater eutrophication potential in **kg P-eq/ha**.
+        </ResponseField>
+        <ResponseField name="terrestrial_acidification" type="float">
+          Terrestrial acidification potential in **kg SO₂-eq/ha**.
+        </ResponseField>
+        <ResponseField name="terrestrial_ecotoxicity" type="float">
+          Terrestrial ecotoxicity potential in **CTUe/ha**.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+
+    <ResponseField name="warnings" type="ValidationItem[]">
+      Array of `ValidationItem` objects. Empty when `manure` and `compost` are within recommended ranges.
+
+      <Expandable title="ValidationItem fields">
+        <ResponseField name="nutrient" type="string">
+          The amendment name, e.g. `"Manure"` or `"Compost"`.
+        </ResponseField>
+        <ResponseField name="value" type="float">
+          The submitted input value.
+        </ResponseField>
+        <ResponseField name="low" type="float">
+          The lower bound of the recommended range.
+        </ResponseField>
+        <ResponseField name="high" type="float">
+          The upper bound of the recommended range.
+        </ResponseField>
+        <ResponseField name="unit" type="string">
+          Unit string, e.g. `"kg/ha"`.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+
+    ### Example Request
+
+    ```bash
+    curl -X POST https://carbonkrishi.onrender.com/api/predict/organic \
+      -H "Content-Type: application/json" \
+      -d '{
+        "manure": 10000,
+        "compost": 1500
+      }'
+    ```
+
+    ### Example Response
+
+    ```json
+    {
+      "impacts": {
+        "global_warming": 312.48,
+        "freshwater_eutrophication": 0.0721,
+        "terrestrial_acidification": 0.8934,
+        "terrestrial_ecotoxicity": 1204.67
+      },
+      "warnings": []
+    }
+    ```
+
+    ### Error Responses
+
+    | Status | Detail |
+    |--------|--------|
+    | `503 Service Unavailable` | Organic model stack is not loaded. Check `has_organic` in `GET /api/meta`. |
+    | `500 Internal Server Error` | ML inference failed — check service logs. |
+
+  </Tab>
+</Tabs>

@@ -1,0 +1,121 @@
+---
+title: "Field-Level GHG and Pollutant Emission Estimation"
+sidebarTitle: "Field Emissions"
+description: "Estimate per-hectare per-season emissions of CH₄, N₂O, NO₃, NH₃, and PO₄ from rice paddies using IPCC and SALCA emission factors."
+---
+
+Field-level emission estimation is a fully analytical calculation — no machine learning is involved. The computation applies published **IPCC 2019** and **SALCA** (Swiss Agricultural LCA) emission factors to your synthetic N and P application rates, irrigation management regime, and any organic amendments you use. Because emissions are calculated from first-principles factors rather than a trained model, results are deterministic and reproducible.
+
+Emission output is expressed in **kg per hectare per season** for five pollutants: CH₄, N₂O, NO₃, NH₃, and PO₄.
+
+---
+
+## Irrigation Modes and Emission Factors
+
+The largest single driver of methane emissions from rice paddies is the flooding regime. Carbonkrishi supports three modes, each with distinct CH₄ and N₂O emission factors:
+
+| Irrigation Mode | CH₄ Factor (kg CH₄ / kg N) | N₂O Factor (kg N₂O / kg N) | NH₃ Multiplier |
+|---|---|---|---|
+| Fully Flooded | 0.793 | 0.00471 | 1.00 |
+| Alternate Wetting and Drying (AWD) | 0.120 | 0.00550 | 1.05 |
+| Rainfed | 0.050 | 0.00620 | 1.08 |
+
+<Note>
+  AWD cuts CH₄ by **~85%** compared to continuous flooding (factor 0.120 vs 0.793). The slight increase in N₂O under AWD and Rainfed conditions is because aerobic soils favour nitrification-denitrification pathways that release more N₂O. The overall climate benefit of AWD is still strongly positive because CH₄ has a GWP₁₀₀ of ~27.9× CO₂.
+</Note>
+
+---
+
+## Organic Amendments
+
+Two optional amendment fields are accepted — `amendment_1` and `amendment_2`. Each can be set to one of: `"None"`, `"Farm Yard Manure"`, or `"Compost"`.
+
+When **one or more** amendments are applied, the emission model applies the following adjustments to account for the extra organic nitrogen pool and enhanced microbial activity:
+
+| Pollutant | Adjustment |
+|---|---|
+| N₂O | Multiplied by **0.95** (−5%) |
+| NH₃ | Multiplied by **1.08** (+8%) |
+| CH₄ | Multiplied by **1.02** (+2%) |
+
+NO₃ and PO₄ are unaffected by organic amendments in the current model version.
+
+---
+
+## Output Emissions
+
+| Pollutant | Unit | Calculation Basis |
+|---|---|---|
+| CH₄ | kg/ha/season | `synthetic_n × CH4_factor × amendment_multiplier` |
+| N₂O | kg/ha/season | `synthetic_n × N2O_factor × amendment_multiplier` |
+| NO₃ | kg/ha/season | `synthetic_n × 0.03986` |
+| NH₃ | kg/ha/season | `synthetic_n × 0.364 × nh3_mult + synthetic_p × 0.005` |
+| PO₄ | kg/ha/season | `synthetic_p × 0.03065` |
+
+---
+
+## Example Request
+
+```bash
+curl -X POST http://localhost:8000/api/emissions/field \
+  -H "Content-Type: application/json" \
+  -d '{
+    "synthetic_n": 135,
+    "synthetic_p": 50,
+    "irrigation": "Alternate Wetting and Drying",
+    "amendment_1": "Farm Yard Manure",
+    "amendment_2": "None"
+  }'
+```
+
+**Example response:**
+
+```json
+{
+  "CH4": 16.524,
+  "N2O": 0.7064,
+  "NO3": 5.3811,
+  "NH3": 53.5367,
+  "PO4": 1.5325
+}
+```
+
+<Note>
+  **Health and environmental significance of each pollutant:**
+
+  - **CH₄** — A potent greenhouse gas with a 100-year GWP of ~27.9× CO₂. Rice paddies are a major global CH₄ source.
+  - **N₂O** — 273× more potent than CO₂ over 100 years (IPCC AR6). Even small N₂O emissions have a large climate impact.
+  - **NO₃** — Leaches into shallow groundwater. WHO drinking-water limit is 50 mg/L; India's BIS IS 10500 sets 45 mg/L. Excess nitrate causes methaemoglobinaemia (blue-baby syndrome) in infants.
+  - **NH₃** — Volatilises into the atmosphere, contributing to secondary PM₂.₅ formation and respiratory illness. Also acidifies soil over time.
+  - **PO₄** — Runoff into ponds and irrigation tanks triggers algal blooms once phosphorus exceeds ~0.1 mg P/L, depleting dissolved oxygen and killing fish.
+</Note>
+
+---
+
+## Request Schema
+
+<ParamField body="synthetic_n" type="float" required>
+  Synthetic nitrogen application rate in kg/ha. Must be ≥ 0.
+</ParamField>
+
+<ParamField body="synthetic_p" type="float" required>
+  Synthetic phosphorus application rate in kg/ha. Must be ≥ 0.
+</ParamField>
+
+<ParamField body="irrigation" type="string" required>
+  Irrigation management regime. One of: `"Fully Flooded"`, `"Alternate Wetting and Drying"`, `"Rainfed"`.
+</ParamField>
+
+<ParamField body="amendment_1" type="string" default="None">
+  First organic amendment. One of: `"None"`, `"Farm Yard Manure"`, `"Compost"`.
+</ParamField>
+
+<ParamField body="amendment_2" type="string" default="None">
+  Second organic amendment. One of: `"None"`, `"Farm Yard Manure"`, `"Compost"`.
+</ParamField>
+
+---
+
+## Full API Reference
+
+See the interactive OpenAPI docs at [/api/emissions](/api/emissions) for live request testing and full schema details.
